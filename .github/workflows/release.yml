@@ -1,0 +1,277 @@
+name: Release Plugins
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release as (e.g. v1.0.0). Required for manual runs."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.plugin }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ---- WordPress plugins (source-only zip) ----
+          - { plugin: npay-woocommerce, kind: php_source }
+          - { plugin: npay-learnpress,  kind: php_source }
+
+          # ---- PHP CMS / billing modules (source-only) ----
+          - { plugin: npay-hostbill,    kind: php_source }
+          - { plugin: npay-nukeviet,    kind: php_source }
+          - { plugin: npay-botble,      kind: php_source }
+          - { plugin: npay-laravel,     kind: php_source }
+
+          # ---- PHP server apps that benefit from prebuilt vendor/ ----
+          - { plugin: npay-sapo,        kind: php_with_vendor }
+          - { plugin: npay-haravan,     kind: php_with_vendor }
+          - { plugin: npay-ladipage,    kind: php_with_vendor }
+          - { plugin: npay-php-mysql,   kind: php_with_vendor }
+
+          # ---- Node ----
+          - { plugin: npay-shopify,     kind: node }
+
+          # ---- Java (Maven) ----
+          - { plugin: npay-ezyplatform, kind: java_maven }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve tag + version
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${GITHUB_REF#refs/tags/}"
+          fi
+          version="${tag#v}"
+          echo "tag=$tag"           >> "$GITHUB_OUTPUT"
+          echo "version=$version"   >> "$GITHUB_OUTPUT"
+          echo "zip=${{ matrix.plugin }}-$version.zip" >> "$GITHUB_OUTPUT"
+
+      # ---- PHP toolchain (only for PHP jobs) ----
+      - name: Setup PHP
+        if: startsWith(matrix.kind, 'php_')
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer:v2
+          coverage: none
+
+      - name: Lint PHP files
+        if: startsWith(matrix.kind, 'php_')
+        working-directory: ${{ matrix.plugin }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Soft-fail individual files but hard-fail the job if any error.
+          ok=1
+          while IFS= read -r f; do
+            if ! php -l "$f" >/dev/null 2>&1; then
+              echo "::error file=$f::php -l failed"
+              php -l "$f" || true
+              ok=0
+            fi
+          done < <(find . -type f -name '*.php' -not -path '*/vendor/*' -not -path '*/node_modules/*')
+          [ "$ok" -eq 1 ]
+
+      - name: Composer install (no dev)
+        if: matrix.kind == 'php_with_vendor'
+        working-directory: ${{ matrix.plugin }}
+        run: |
+          if [ -f composer.json ]; then
+            composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader || \
+              composer install --no-dev --no-interaction --optimize-autoloader || \
+              echo "composer install failed (continuing — plugin may declare deps but ship vendor at runtime)"
+          fi
+
+      # ---- Node toolchain ----
+      - name: Setup Node
+        if: matrix.kind == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: NPM install (prod)
+        if: matrix.kind == 'node'
+        working-directory: ${{ matrix.plugin }}
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --omit=dev
+          else
+            npm install --omit=dev --no-audit --no-fund
+          fi
+
+      - name: Node syntax check
+        if: matrix.kind == 'node'
+        working-directory: ${{ matrix.plugin }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r f; do
+            node --check "$f"
+          done < <(find . -type f -name '*.js' -not -path '*/node_modules/*')
+
+      # ---- Java toolchain ----
+      - name: Setup JDK
+        if: matrix.kind == 'java_maven'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Maven package
+        if: matrix.kind == 'java_maven'
+        working-directory: ${{ matrix.plugin }}
+        run: mvn -B -q -DskipTests package
+
+      # ---- Common: write VERSION + package zip ----
+      - name: Stamp VERSION
+        working-directory: ${{ matrix.plugin }}
+        run: |
+          {
+            echo "version=${{ steps.meta.outputs.version }}"
+            echo "tag=${{ steps.meta.outputs.tag }}"
+            echo "commit=${GITHUB_SHA}"
+            echo "built_at=$(date -u +%FT%TZ)"
+          } > VERSION
+
+      - name: Create zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="${{ steps.meta.outputs.zip }}"
+          # Exclude rules common to all plugins.
+          EXCLUDES=(
+            '*.git*'
+            '*/.github/*'
+            '*/node_modules/*/.cache/*'
+            '*/.DS_Store'
+            '*/.env'
+            '*/.env.*'
+            '*/__MACOSX/*'
+            '*/tests/__snapshots__/*'
+            '*/.pytest_cache/*'
+          )
+          # Per-kind excludes layered on top.
+          case "${{ matrix.kind }}" in
+            php_source)
+              EXCLUDES+=( '*/vendor/*' '*/composer.lock' )
+              ;;
+            java_maven)
+              # Keep target/*.jar but drop intermediate class files + reports.
+              EXCLUDES+=( '*/target/classes/*' '*/target/test-classes/*' '*/target/maven-*' '*/target/surefire-reports/*' '*/target/generated-sources/*' '*/target/*.original' '*/target/site/*' )
+              ;;
+            node)
+              # Strip dev caches inside node_modules.
+              EXCLUDES+=( '*/node_modules/.bin/*' '*/node_modules/.package-lock.json' '*/tests/*' )
+              ;;
+            php_with_vendor)
+              # Keep vendor/. Drop composer's leftover dev caches.
+              EXCLUDES+=( '*/vendor/bin/.phpunit.result.cache' )
+              ;;
+          esac
+
+          # Build flat zip with the plugin folder at the root of the archive.
+          ARGS=( -r "$ZIP" "${{ matrix.plugin }}" )
+          for e in "${EXCLUDES[@]}"; do
+            ARGS+=( -x "$e" )
+          done
+          zip "${ARGS[@]}"
+
+          ls -lh "$ZIP"
+          unzip -l "$ZIP" | tail -5
+
+      - name: Generate SHA256
+        run: sha256sum "${{ steps.meta.outputs.zip }}" > "${{ steps.meta.outputs.zip }}.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.plugin }}
+          path: |
+            ${{ steps.meta.outputs.zip }}
+            ${{ steps.meta.outputs.zip }}.sha256
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lh dist/
+
+      - name: Generate release notes
+        id: notes
+        shell: bash
+        run: |
+          {
+            echo "## NPay plugins — ${{ steps.meta.outputs.tag }}"
+            echo ""
+            echo "12 plugin / SDK packaged trong release này. Tải zip tương ứng cho stack của bạn:"
+            echo ""
+            for f in dist/*.zip; do
+              base=$(basename "$f")
+              sha=$(grep -oE '^[0-9a-f]+' "dist/$base.sha256" 2>/dev/null || echo "")
+              echo "- **$base** \`sha256:${sha:0:12}…\`"
+            done
+            echo ""
+            echo "### Cài đặt"
+            echo "- **WordPress / WooCommerce / LearnPress**: WP Admin → Plugins → Upload → chọn zip"
+            echo "- **HostBill**: giải nén vào \`<root>/includes/modules/gateways/\`"
+            echo "- **NukeViet**: giải nén vào \`modules/shops/payment_gateway/\`"
+            echo "- **Botble**: giải nén vào \`platform/plugins/\`"
+            echo "- **Sapo / Haravan / LadiPage / PHP-MySQL**: deploy lên host PHP, đã bundle sẵn \`vendor/\`"
+            echo "- **Shopify**: deploy Node app, đã bundle sẵn \`node_modules/\`"
+            echo "- **Ezyplatform**: copy \`target/npay-ezyplatform-*.jar\` vào plugins folder"
+            echo "- **Laravel SDK**: \`composer require npay/laravel\` hoặc copy thủ công"
+            echo ""
+            echo "Tài liệu: <https://my.npay.vn/integrations>"
+          } > release_notes.md
+          cat release_notes.md
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: "NPay Plugins ${{ steps.meta.outputs.tag }}"
+          body_path: release_notes.md
+          files: dist/*
+          fail_on_unmatched_files: true
+          generate_release_notes: false

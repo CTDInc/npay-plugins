@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-php:
+    name: Lint PHP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+      - name: php -l on every PHP file
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=1
+          while IFS= read -r f; do
+            if ! php -l "$f" >/dev/null 2>&1; then
+              echo "::error file=$f::php -l failed"
+              php -l "$f" || true
+              ok=0
+            fi
+          done < <(find . -type f -name '*.php' -not -path '*/vendor/*' -not -path '*/node_modules/*' -not -path '*/.git/*')
+          [ "$ok" -eq 1 ]
+
+  lint-node:
+    name: Lint Node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: node --check on every JS file
+        shell: bash
+        working-directory: npay-shopify
+        run: |
+          set -euo pipefail
+          while IFS= read -r f; do
+            node --check "$f"
+          done < <(find . -type f -name '*.js' -not -path '*/node_modules/*')
+
+  test-shopify:
+    name: Test Shopify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - working-directory: npay-shopify
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+          npm test --if-present || node --test tests/
+
+  build-java:
+    name: Build Ezyplatform (Maven)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - working-directory: npay-ezyplatform
+        run: mvn -B -q -DskipTests package
