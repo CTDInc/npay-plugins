@@ -1,0 +1,24 @@
+{
+  "name": "npay/php-mysql-example",
+  "description": "NPay webhook receiver + order management example — vanilla PHP + MySQL (PDO).",
+  "type": "project",
+  "license": "MIT",
+  "keywords": ["npay", "webhook", "vietqr", "payment", "mysql", "php"],
+  "homepage": "https://my.npay.vn",
+  "require": {
+    "php": ">=7.4",
+    "ext-pdo": "*",
+    "ext-pdo_mysql": "*",
+    "ext-json": "*",
+    "ext-curl": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "NPay\\": "lib/"
+    }
+  },
+  "scripts": {
+    "lint": "find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l",
+    "simulate": "php tools/npay-simulate.php"
+  }
+}

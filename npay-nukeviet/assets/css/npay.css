@@ -1,0 +1,165 @@
+/* NPay NukeViet payment gateway styles */
+
+.npay-checkout {
+    max-width: 880px;
+    margin: 20px auto;
+    padding: 24px;
+    background: #fff;
+    border: 1px solid #e6e8eb;
+    border-radius: 12px;
+    box-shadow: 0 6px 24px rgba(15, 23, 42, 0.05);
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    color: #1f2937;
+}
+
+.npay-checkout__header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.npay-checkout__title {
+    margin: 0 0 8px;
+    font-size: 22px;
+    color: #0f172a;
+}
+
+.npay-checkout__intro {
+    margin: 0;
+    color: #475569;
+    font-size: 14px;
+}
+
+.npay-checkout__body {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.npay-checkout__qr {
+    flex: 0 0 260px;
+    text-align: center;
+}
+
+.npay-checkout__qr-img {
+    width: 240px;
+    height: 240px;
+    object-fit: contain;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    padding: 8px;
+}
+
+.npay-checkout__qr-caption {
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.npay-checkout__info {
+    flex: 1 1 320px;
+}
+
+.npay-info-list {
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    row-gap: 10px;
+    column-gap: 12px;
+}
+
+.npay-info-list dt {
+    font-weight: 600;
+    color: #334155;
+}
+
+.npay-info-list dd {
+    margin: 0;
+    color: #0f172a;
+    word-break: break-word;
+}
+
+.npay-amount {
+    color: #dc2626;
+    font-size: 18px;
+}
+
+.npay-description {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.npay-btn-copy {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    background: #2563eb;
+    color: #fff;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.npay-btn-copy:hover { background: #1d4ed8; }
+.npay-btn-copy.is-copied { background: #16a34a; }
+
+.npay-warning {
+    margin: 16px 0 0;
+    padding: 12px 14px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 6px;
+    color: #9a3412;
+    font-size: 13px;
+}
+
+.npay-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+.npay-status.is-paid {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #047857;
+}
+
+.npay-status__spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #93c5fd;
+    border-top-color: #1d4ed8;
+    border-radius: 50%;
+    animation: npay-spin 0.9s linear infinite;
+}
+
+.npay-status.is-paid .npay-status__spinner {
+    border-color: #047857;
+    border-top-color: transparent;
+    animation: none;
+}
+
+@keyframes npay-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+    .npay-info-list { grid-template-columns: 1fr; }
+    .npay-info-list dt { margin-top: 8px; }
+    .npay-checkout__qr { flex-basis: 100%; }
+}

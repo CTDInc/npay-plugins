@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NPay · Quản trị {{shop_domain}}</title>
+  <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body>
+  <main class="admin">
+    <header class="brand">
+      <span class="brand-logo">NPay</span>
+      <span class="brand-sub">Quản trị · {{shop_domain}}</span>
+    </header>
+
+    <section class="card">
+      <h2>Cấu hình tài khoản nhận tiền</h2>
+      <form method="POST" action="/admin/settings">
+        <input type="hidden" name="shop" value="{{shop_domain}}" />
+        <label>
+          Số tài khoản
+          <input name="account_number" value="{{account_number}}" required />
+        </label>
+        <label>
+          Ngân hàng (BIN, vd: 970422 = MB)
+          <input name="bank_bin" value="{{bank_bin}}" required />
+        </label>
+        <label>
+          Chủ tài khoản
+          <input name="account_holder" value="{{account_holder}}" />
+        </label>
+        <label>
+          API token (npay webhook)
+          <input name="api_token" value="{{api_token}}" />
+        </label>
+        <label>
+          QR template
+          <input name="qr_template" value="{{qr_template}}" placeholder="compact" />
+        </label>
+        <button type="submit" class="btn">Lưu cấu hình</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Đơn hàng gần đây</h2>
+      <table class="orders">
+        <thead>
+          <tr><th>Ref</th><th>Shopify Order</th><th>Số tiền</th><th>Trạng thái</th><th>Đã thanh toán</th></tr>
+        </thead>
+        <tbody>
+          {{orders_rows}}
+        </tbody>
+      </table>
+    </section>
+
+    <footer class="foot">Powered by <strong>NPay</strong></footer>
+  </main>
+</body>
+</html>

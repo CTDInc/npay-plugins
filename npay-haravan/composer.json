@@ -1,0 +1,23 @@
+{
+    "name": "npay/haravan",
+    "description": "NPay payment integration for Haravan stores (OAuth + Webhook).",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "guzzlehttp/guzzle": "^7.0",
+        "ext-json": "*",
+        "ext-pdo": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "NPay\\Haravan\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "NPay Team",
+            "email": "dev@npay.vn"
+        }
+    ]
+}

@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# Serve real files / directories directly.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Route everything else through the front controller.
+RewriteRule ^ index.php [QSA,L]
+
+# Security: block direct access to config / dotfiles.
+<FilesMatch "^(config\.php|composer\.(json|lock)|\.env|\.htaccess)$">
+    Require all denied
+</FilesMatch>

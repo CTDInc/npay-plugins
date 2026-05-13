@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Thanh toán đơn hàng — NPay</title>
+    <style>
+        body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background:#f7f8fa; margin:0; padding:24px; color:#1f2937; }
+        .card { max-width:480px; margin:0 auto; background:#fff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.08); padding:24px; }
+        h1 { font-size:20px; margin:0 0 4px; color:#0b5fff; }
+        .sub { color:#6b7280; font-size:13px; margin-bottom:16px; }
+        .qr { text-align:center; margin:16px 0; }
+        .qr img { width:260px; height:260px; border:1px solid #e5e7eb; border-radius:8px; }
+        table { width:100%; border-collapse:collapse; font-size:14px; }
+        td { padding:8px 0; border-bottom:1px dashed #e5e7eb; }
+        td.k { color:#6b7280; width:40%; }
+        td.v { font-weight:600; text-align:right; word-break:break-all; }
+        .amount { color:#dc2626; font-size:18px; }
+        .note { background:#fff7ed; border-left:4px solid #f97316; padding:10px 12px; font-size:13px; margin-top:16px; border-radius:4px; }
+        .footer { text-align:center; font-size:12px; color:#9ca3af; margin-top:16px; }
+        .footer a { color:#0b5fff; text-decoration:none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Thanh toán qua chuyển khoản</h1>
+        <div class="sub">Quét mã QR hoặc chuyển khoản theo thông tin bên dưới</div>
+
+        <div class="qr">
+            <img th:src="${qrUrl}" src="https://qr.npay.vn/img?acc=0&bank=970422" alt="NPay QR"/>
+        </div>
+
+        <table>
+            <tr><td class="k">Ngân hàng</td><td class="v" th:text="${bankName}">MB Bank</td></tr>
+            <tr><td class="k">Số tài khoản</td><td class="v" th:text="${accountNumber}">0123456789</td></tr>
+            <tr><td class="k">Chủ tài khoản</td><td class="v" th:text="${accountHolder}">CONG TY NPAY</td></tr>
+            <tr><td class="k">Số tiền</td><td class="v amount" th:text="${amountFormatted}">100.000 đ</td></tr>
+            <tr><td class="k">Nội dung CK</td><td class="v" th:text="${orderCode}">NPAY12345</td></tr>
+        </table>
+
+        <div class="note">
+            <strong>Lưu ý:</strong> Vui lòng giữ nguyên nội dung chuyển khoản
+            <code th:text="${orderCode}">NPAY12345</code> để hệ thống tự động xác nhận đơn hàng trong vài giây.
+        </div>
+
+        <div class="footer">
+            Bảo trợ bởi <a href="https://npay.vn" target="_blank">NPay</a> &middot;
+            <a href="https://my.npay.vn" target="_blank">my.npay.vn</a>
+        </div>
+    </div>
+</body>
+</html>

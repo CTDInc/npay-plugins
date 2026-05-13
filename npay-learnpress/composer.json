@@ -1,0 +1,39 @@
+{
+	"name": "npay/learnpress",
+	"description": "NPay payment gateway add-on for LearnPress LMS.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"homepage": "https://npay.vn",
+	"keywords": [
+		"wordpress",
+		"learnpress",
+		"payment-gateway",
+		"npay",
+		"vietnam",
+		"bank-transfer",
+		"qr-code"
+	],
+	"authors": [
+		{
+			"name": "NPay",
+			"homepage": "https://npay.vn",
+			"role": "Developer"
+		}
+	],
+	"support": {
+		"issues": "https://npay.vn/support",
+		"docs": "https://docs.npay.vn"
+	},
+	"require": {
+		"php": ">=7.4",
+		"composer/installers": "^1.0 || ^2.0"
+	},
+	"extra": {
+		"wordpress-plugin-name": "npay-learnpress",
+		"requires": {
+			"wordpress": ">=5.8",
+			"learnpress": ">=4.0"
+		}
+	},
+	"minimum-stability": "stable"
+}

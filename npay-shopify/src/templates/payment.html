@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NPay · Thanh toán đơn hàng {{ref_code}}</title>
+  <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body>
+  <main class="payment">
+    <header class="brand">
+      <span class="brand-logo">NPay</span>
+      <span class="brand-sub">Cổng thanh toán QR cho Shopify</span>
+    </header>
+
+    <section class="card" data-ref="{{ref_code}}" data-status="{{status}}">
+      <h1>Thanh toán đơn hàng</h1>
+      <p class="ref">Mã tham chiếu: <strong>{{ref_code}}</strong></p>
+
+      <div class="qr-wrap">
+        <img class="qr" src="{{qr_url}}" alt="QR thanh toán NPay" />
+      </div>
+
+      <ul class="bank">
+        <li><span>Ngân hàng (BIN):</span><strong>{{bank_bin}}</strong></li>
+        <li><span>Số tài khoản:</span><strong>{{account_number}}</strong></li>
+        <li><span>Chủ tài khoản:</span><strong>{{account_holder}}</strong></li>
+        <li><span>Số tiền:</span><strong>{{amount_formatted}} ₫</strong></li>
+        <li><span>Nội dung CK:</span><strong>{{ref_code}}</strong></li>
+      </ul>
+
+      <div class="countdown">
+        Tự động kiểm tra trong <span id="countdown">15</span> giây…
+      </div>
+
+      <div id="status-box" class="status status-{{status}}">
+        Trạng thái: <strong id="status-text">{{status}}</strong>
+      </div>
+
+      <p class="note">Vui lòng giữ nguyên nội dung chuyển khoản để hệ thống đối soát tự động.</p>
+    </section>
+
+    <footer class="foot">Powered by <strong>NPay</strong></footer>
+  </main>
+
+  <script src="/assets/js/poll.js"></script>
+</body>
+</html>

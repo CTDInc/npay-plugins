@@ -1,0 +1,24 @@
+{
+    "name": "npay/ladipage-webhook",
+    "description": "Standalone NPay × LadiPage webhook receiver: nhận form từ LadiPage, sinh QR thanh toán qua qr.npay.vn và đối soát tự động bằng webhook NPay.",
+    "type": "project",
+    "license": "MIT",
+    "keywords": ["npay", "ladipage", "webhook", "vietqr", "qr", "payment", "sqlite"],
+    "homepage": "https://npay.vn",
+    "require": {
+        "php": ">=7.4",
+        "ext-pdo": "*",
+        "ext-pdo_sqlite": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "classmap": ["lib/"]
+    },
+    "scripts": {
+        "install-plugin": "bash install.sh",
+        "lint": "find . -maxdepth 2 -name '*.php' -print0 | xargs -0 -n1 php -l"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

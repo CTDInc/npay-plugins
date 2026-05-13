@@ -1,0 +1,202 @@
+/* NPay LearnPress payment page styles */
+.npay-lp-payment-wrapper {
+	max-width: 920px;
+	margin: 40px auto;
+	padding: 16px;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.npay-lp-payment-card {
+	background: #fff;
+	border-radius: 12px;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+	padding: 28px;
+}
+
+.npay-lp-payment-header {
+	text-align: center;
+	border-bottom: 1px dashed #e5e7eb;
+	padding-bottom: 18px;
+	margin-bottom: 22px;
+}
+
+.npay-lp-title {
+	margin: 0 0 6px;
+	font-size: 22px;
+	color: #111827;
+}
+
+.npay-lp-amount {
+	margin: 0 0 10px;
+	font-size: 16px;
+	color: #374151;
+}
+
+.npay-lp-amount strong {
+	color: #dc2626;
+	font-size: 20px;
+}
+
+.npay-lp-countdown {
+	display: inline-flex;
+	gap: 6px;
+	align-items: center;
+	background: #fef3c7;
+	color: #92400e;
+	padding: 6px 14px;
+	border-radius: 999px;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.npay-lp-payment-body {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 28px;
+}
+
+@media (max-width: 720px) {
+	.npay-lp-payment-body {
+		grid-template-columns: 1fr;
+	}
+}
+
+.npay-lp-qr {
+	text-align: center;
+}
+
+.npay-lp-qr img {
+	max-width: 100%;
+	width: 320px;
+	height: auto;
+	border: 1px solid #e5e7eb;
+	border-radius: 12px;
+	padding: 8px;
+	background: #fff;
+}
+
+.npay-lp-qr-caption {
+	margin-top: 10px;
+	color: #6b7280;
+	font-size: 13px;
+}
+
+.npay-lp-bank-info h2 {
+	margin: 0 0 12px;
+	font-size: 18px;
+	color: #111827;
+}
+
+.npay-lp-info-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.npay-lp-info-table th,
+.npay-lp-info-table td {
+	padding: 10px 8px;
+	text-align: left;
+	border-bottom: 1px solid #f1f5f9;
+	vertical-align: middle;
+}
+
+.npay-lp-info-table th {
+	color: #6b7280;
+	font-weight: 500;
+	width: 42%;
+}
+
+.npay-lp-code {
+	color: #047857;
+	letter-spacing: 1px;
+}
+
+.npay-lp-copy-btn {
+	margin-left: 6px;
+	padding: 4px 10px;
+	background: #2563eb;
+	color: #fff;
+	border: none;
+	border-radius: 6px;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.npay-lp-copy-btn:hover {
+	background: #1d4ed8;
+}
+
+.npay-lp-copy-btn.copied {
+	background: #16a34a;
+}
+
+.npay-lp-warning {
+	margin-top: 10px;
+	padding: 10px 12px;
+	background: #fff7ed;
+	border-left: 4px solid #fb923c;
+	color: #9a3412;
+	font-size: 13px;
+	border-radius: 6px;
+}
+
+.npay-lp-status {
+	margin-top: 22px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 18px;
+	background: #eff6ff;
+	border-radius: 10px;
+	color: #1d4ed8;
+}
+
+.npay-lp-status.paid {
+	background: #dcfce7;
+	color: #166534;
+}
+
+.npay-lp-status.expired {
+	background: #fee2e2;
+	color: #991b1b;
+}
+
+.npay-lp-spinner {
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	border: 2px solid currentColor;
+	border-right-color: transparent;
+	animation: npay-lp-spin 1s linear infinite;
+}
+
+.npay-lp-status.paid .npay-lp-spinner,
+.npay-lp-status.expired .npay-lp-spinner {
+	display: none;
+}
+
+@keyframes npay-lp-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.npay-lp-instructions {
+	margin-top: 24px;
+	padding-top: 18px;
+	border-top: 1px dashed #e5e7eb;
+}
+
+.npay-lp-instructions h3 {
+	margin: 0 0 10px;
+	font-size: 16px;
+	color: #111827;
+}
+
+.npay-lp-instructions ol {
+	margin: 0;
+	padding-left: 20px;
+	color: #374151;
+	font-size: 14px;
+	line-height: 1.7;
+}

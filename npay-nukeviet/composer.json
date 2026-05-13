@@ -1,0 +1,30 @@
+{
+    "name": "npay/nukeviet-payment-gateway",
+    "description": "NPay payment gateway integration for NukeViet 4.x shops module (informational package — install by copying into modules/shops/payment_gateway/).",
+    "type": "nukeviet-module",
+    "license": "GPL-2.0-or-later",
+    "keywords": ["nukeviet", "payment", "gateway", "npay", "vietqr", "bank-transfer"],
+    "homepage": "https://npay.vn",
+    "support": {
+        "email": "support@npay.vn",
+        "docs": "https://docs.npay.vn",
+        "source": "https://github.com/npay/npay-nukeviet"
+    },
+    "authors": [
+        {
+            "name": "NPay",
+            "email": "support@npay.vn",
+            "homepage": "https://npay.vn"
+        }
+    ],
+    "require": {
+        "php": ">=7.2"
+    },
+    "extra": {
+        "nukeviet": {
+            "min-version": "4.4",
+            "install-path": "modules/shops/payment_gateway/npay",
+            "main-file": "npay.php"
+        }
+    }
+}

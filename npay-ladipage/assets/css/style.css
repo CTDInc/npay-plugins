@@ -1,0 +1,112 @@
+/* npay-ladipage — minimal stylesheet */
+* { box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f4f6fb;
+    color: #1f2937;
+    margin: 0;
+    line-height: 1.5;
+}
+.container { max-width: 720px; margin: 0 auto; padding: 32px 16px; }
+.container.narrow { max-width: 420px; }
+.container.wide   { max-width: 1080px; }
+
+.hero { text-align: center; margin-bottom: 24px; }
+.hero h1 { margin: 0 0 8px; font-size: 28px; color: #0f172a; }
+.hero p { margin: 0; color: #475569; }
+
+.card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .08);
+    padding: 24px;
+    margin-bottom: 16px;
+}
+.card h2 { margin-top: 0; font-size: 18px; color: #0f172a; }
+.muted { color: #64748b; text-align: center; margin-top: 24px; }
+
+label {
+    display: block;
+    font-size: 13px;
+    color: #334155;
+    margin-bottom: 12px;
+    font-weight: 500;
+}
+input[type=text], input[type=tel], input[type=email], input[type=number], input[type=password] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-top: 4px;
+    font-family: inherit;
+}
+input:focus { outline: 2px solid #2563eb; outline-offset: 1px; border-color: #2563eb; }
+
+.btn-primary {
+    display: inline-block;
+    background: #2563eb;
+    color: #fff;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+.btn-primary:hover { background: #1d4ed8; }
+
+pre, code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+}
+pre { background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+code { background: #eef2ff; color: #1e3a8a; padding: 2px 6px; border-radius: 4px; }
+pre code { background: transparent; color: inherit; padding: 0; }
+
+/* QR page */
+.qr-card { text-align: center; }
+.qr-wrap { margin: 0 auto 16px; }
+.qr-wrap img { max-width: 280px; width: 100%; height: auto; border-radius: 12px; background: #fff; }
+.bank-info { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; text-align: left; margin: 16px auto; max-width: 420px; }
+.bank-info dt { color: #64748b; font-size: 13px; }
+.bank-info dd { margin: 0; }
+.hint { font-size: 13px; color: #64748b; }
+.countdown { margin: 12px 0; font-size: 16px; font-weight: 600; color: #b45309; }
+.actions { margin: 12px 0; }
+
+.status {
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-weight: 600;
+}
+.status-pending  { background: #fef3c7; color: #92400e; }
+.status-paid     { background: #dcfce7; color: #166534; }
+.status-expired  { background: #e5e7eb; color: #374151; }
+.status-cancelled{ background: #fee2e2; color: #991b1b; }
+
+/* Admin */
+.admin-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+}
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.stat {
+    background: #fff; padding: 16px; border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+    text-align: center;
+}
+.stat span { display: block; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+.stat strong { font-size: 24px; color: #0f172a; }
+
+table.orders { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.orders th, table.orders td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+table.orders th { color: #475569; font-weight: 600; background: #f8fafc; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.badge-pending  { background: #fef3c7; color: #92400e; }
+.badge-paid     { background: #dcfce7; color: #166534; }
+.badge-expired  { background: #e5e7eb; color: #374151; }
+.badge-cancelled{ background: #fee2e2; color: #991b1b; }

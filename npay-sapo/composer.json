@@ -1,0 +1,23 @@
+{
+    "name": "npay/sapo",
+    "description": "NPay payment integration for Sapo (Bizweb) - OAuth app with QR/webhook flow",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "guzzlehttp/guzzle": "^7.0",
+        "ext-pdo": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "NPay\\Sapo\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "NPay Team",
+            "email": "dev@npay.vn"
+        }
+    ]
+}

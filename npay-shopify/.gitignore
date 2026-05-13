@@ -1,0 +1,12 @@
+node_modules/
+.env
+*.sqlite
+*.sqlite-journal
+data.sqlite*
+npm-debug.log*
+.DS_Store
+.vscode/
+.idea/
+dist/
+build/
+coverage/

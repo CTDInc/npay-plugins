@@ -1,0 +1,8 @@
+node_modules/
+vendor/
+*.log
+.env
+.DS_Store
+target/
+*.class
+data/*.sqlite

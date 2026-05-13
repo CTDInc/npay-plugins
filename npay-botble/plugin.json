@@ -1,0 +1,10 @@
+{
+    "name": "NPay",
+    "namespace": "Botble\\NPay\\",
+    "provider": "Botble\\NPay\\Providers\\NPayServiceProvider",
+    "author": "NPay Team",
+    "url": "https://npay.vn",
+    "version": "1.0.0",
+    "description": "NPay payment gateway integration for Botble CMS - VietQR with automatic webhook reconciliation.",
+    "minimum_core_version": "6.0.0"
+}

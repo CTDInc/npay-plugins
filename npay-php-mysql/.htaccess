@@ -1,0 +1,30 @@
+# NPay PHP+MySQL .htaccess
+# Default deny cho file nhạy cảm.
+
+<FilesMatch "\.(sql|md|sh|env)$">
+  Require all denied
+</FilesMatch>
+
+<FilesMatch "^config\.(php|example\.php)$">
+  Require all denied
+</FilesMatch>
+
+# Chặn truy cập thư mục lib/ và tools/ qua web
+RedirectMatch 403 /lib/.*$
+RedirectMatch 403 /tools/.*$
+
+# Cho phép các endpoint công khai (mặc định đã cho phép, ghi rõ tài liệu)
+# webhook.php, status.php, pay.php, create-order.php, admin.php
+
+# Cache assets tĩnh
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|svg|ico)$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "max-age=2592000, public"
+  </IfModule>
+</FilesMatch>
+
+Options -Indexes
+DirectoryIndex admin.php
+
+# Loại bỏ server signature
+ServerSignature Off

@@ -1,0 +1,56 @@
+# npay-ladipage — Apache rules
+
+# Default: serve files normally.
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct access to the data/ directory (SQLite DB).
+    RewriteRule ^data/ - [F,L]
+
+    # Block direct access to the lib/ directory.
+    RewriteRule ^lib/ - [F,L]
+
+    # Block access to config files and examples.
+    RewriteRule ^(config\.php|config\.example\.php|composer\.json|composer\.lock|install\.sh|\.htaccess)$ - [F,L]
+</IfModule>
+
+# Hard deny — fallback for servers without mod_rewrite.
+<FilesMatch "^(config\.php|config\.example\.php|composer\.(json|lock)|install\.sh)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.sqlite$">
+    Require all denied
+</FilesMatch>
+
+# admin.php — token-protected at app level, but also allow rate limiting / extra IP allowlists here.
+# Uncomment + edit to restrict by IP:
+# <Files "admin.php">
+#     Require ip 1.2.3.4
+# </Files>
+
+# webhook.php, status.php, qr-page.php, index.php — open to the world.
+<Files "webhook.php">
+    Require all granted
+</Files>
+<Files "status.php">
+    Require all granted
+</Files>
+<Files "qr-page.php">
+    Require all granted
+</Files>
+<Files "index.php">
+    Require all granted
+</Files>
+
+# Cache static assets.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css        "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType image/png       "access plus 30 days"
+    ExpiresByType image/svg+xml   "access plus 30 days"
+</IfModule>
