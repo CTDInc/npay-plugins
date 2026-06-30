@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Map;
 
 /**
@@ -91,8 +93,12 @@ public class NPayWebhookController {
         String token = config.getApiToken();
         if (token == null || token.isBlank()) return false;
         if (auth == null || auth.isBlank()) return false;
-        String expected = "Apikey " + token;
-        return expected.equals(auth) || token.equals(auth);
+        return constantTimeEquals("Apikey " + token, auth) || constantTimeEquals(token, auth);
+    }
+
+    private static boolean constantTimeEquals(String a, String b) {
+        return MessageDigest.isEqual(
+                a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
     }
 
     static String extractOrderCode(String content) {

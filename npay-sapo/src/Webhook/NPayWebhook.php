@@ -53,9 +53,10 @@ class NPayWebhook
             return;
         }
 
-        // Optional per-store NPay token authentication.
+        // Per-store NPay token authentication — fail closed: an unset secret
+        // must reject, never accept an unverified webhook.
         $apiKey = (string)($store['api_key'] ?? '');
-        if ($apiKey !== '' && !$this->npay->verifyWebhook($headers, $raw, $apiKey)) {
+        if ($apiKey === '' || !$this->npay->verifyWebhook($headers, $raw, $apiKey)) {
             $this->respond(401, ['error' => 'invalid signature']);
             return;
         }
