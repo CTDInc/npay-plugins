@@ -66,7 +66,7 @@ final class NPay
     public static function verifySignature(string $rawBody, ?string $signature, string $secret): bool
     {
         if ($secret === '') {
-            return true; // disabled
+            return false; // fail closed: an unset secret must never accept
         }
         if ($signature === null || $signature === '') {
             return false;
