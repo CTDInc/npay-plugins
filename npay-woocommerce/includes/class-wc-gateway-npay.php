@@ -213,7 +213,7 @@ class WC_Gateway_NPay extends WC_Payment_Gateway {
 			return;
 		}
 
-		if ( ! $order->needs_payment() ) {
+		if ( ! $order->has_status( array( 'pending', 'on-hold', 'failed' ) ) ) {
 			echo '<p class="npay-paid-message">' . esc_html__( 'Thank you. Your payment has been received.', 'npay-woocommerce' ) . '</p>';
 			return;
 		}
@@ -224,6 +224,7 @@ class WC_Gateway_NPay extends WC_Payment_Gateway {
 		$qr_url = NPay_Order_Helper::build_qr_url(
 			array(
 				'account_number' => $this->account_number,
+				'account_name'   => $this->account_name,
 				'bank'           => $this->bank_code,
 				'amount'         => $amount,
 				'description'    => $code,

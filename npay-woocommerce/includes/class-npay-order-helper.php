@@ -148,6 +148,7 @@ class NPay_Order_Helper {
 	public static function build_qr_url( $args ) {
 		$defaults = array(
 			'account_number' => '',
+			'account_name'   => '',
 			'bank'           => '',
 			'amount'         => 0,
 			'description'    => '',
@@ -155,14 +156,19 @@ class NPay_Order_Helper {
 		);
 		$args     = wp_parse_args( $args, $defaults );
 
+		// NPay gen-qr-service: /qrcard = VietQR card, /qrpay = bare QR. Bank key
+		// is the vietnam-qr-pay lowercase slug (e.g. "shb", "vietcombank").
+		$route  = ( 'qronly' === $args['template'] ) ? '/qrpay' : '/qrcard';
 		$params = array(
-			'acc'      => $args['account_number'],
-			'bank'     => $args['bank'],
-			'amount'   => number_format( (float) $args['amount'], 0, '.', '' ),
-			'des'      => $args['description'],
-			'template' => $args['template'],
+			'ngan_hang' => strtolower( $args['bank'] ),
+			'tai_khoan' => $args['account_number'],
+			'so_tien'   => number_format( (float) $args['amount'], 0, '.', '' ),
+			'noi_dung'  => $args['description'],
 		);
+		if ( '/qrcard' === $route && '' !== $args['account_name'] ) {
+			$params['chu_tai_khoan'] = $args['account_name'];
+		}
 
-		return NPAY_QR_BASE . '/img?' . http_build_query( $params );
+		return NPAY_QR_BASE . $route . '?' . http_build_query( $params );
 	}
 }
