@@ -4,34 +4,27 @@ namespace NPay\Laravel\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use NPay\Laravel\NPay;
 use Symfony\Component\HttpFoundation\Response;
 
 class VerifyNPayWebhook
 {
     /**
-     * Xác thực header Authorization: Apikey <token> trùng với cấu hình NPay.
+     * Webhook hợp lệ khi đúng `Authorization: Apikey <webhook_token>` hoặc đúng
+     * chữ ký `X-Npay-Signature` (webhook_secret) — xem NPay::verifyWebhook().
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $expected = (string) config('npay.webhook_token', '');
+        $npay = app(NPay::class);
 
-        if ($expected === '') {
+        if (!$npay->hasWebhookCredentials()) {
             return response()->json([
                 'success' => false,
-                'message' => 'NPay webhook_token chưa được cấu hình.',
+                'message' => 'NPay webhook_token / webhook_secret chưa được cấu hình.',
             ], 500);
         }
 
-        $auth = (string) $request->header('Authorization', '');
-        $token = null;
-
-        if (preg_match('/^(Apikey|Bearer)\s+(.+)$/i', $auth, $m)) {
-            $token = trim($m[2]);
-        } elseif ($auth !== '') {
-            $token = $auth;
-        }
-
-        if ($token === null || !hash_equals($expected, $token)) {
+        if (!$npay->verifyWebhook($request)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized',

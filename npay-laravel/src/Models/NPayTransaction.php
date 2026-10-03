@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
+ * @property string|null $npay_id
+ * @property string|null $transfer_type
  * @property string|null $gateway
  * @property string|null $transaction_date
  * @property string|null $account_number
@@ -37,6 +39,8 @@ class NPayTransaction extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'npay_id',
+        'transfer_type',
         'gateway',
         'transaction_date',
         'account_number',

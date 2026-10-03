@@ -31,6 +31,7 @@ abstract class TestCase extends Orchestra
         ]);
         $app['config']->set('npay.api_token', 'test-api-token');
         $app['config']->set('npay.webhook_token', 'test-webhook-token');
+        $app['config']->set('npay.webhook_secret', 'test-webhook-secret');
         $app['config']->set('npay.account_number', '0123456789');
         $app['config']->set('npay.bank_bin', '970422');
         $app['config']->set('npay.account_holder', 'NGUYEN VAN A');

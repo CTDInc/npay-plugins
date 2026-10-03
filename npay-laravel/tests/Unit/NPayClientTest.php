@@ -29,10 +29,23 @@ class NPayClientTest extends TestCase
             'description' => 'NPAY123',
         ]);
 
-        $this->assertStringStartsWith('https://qr.npay.vn/img/970422/0123456789/compact.png', $url);
-        $this->assertStringContainsString('amount=100000', $url);
-        $this->assertStringContainsString('des=NPAY123', $url);
-        $this->assertStringContainsString('accountName=', $url);
+        $this->assertStringStartsWith('https://qr.npay.vn/qrcard?', $url);
+        $this->assertStringContainsString('ma_bin=970422', $url);
+        $this->assertStringContainsString('tai_khoan=0123456789', $url);
+        $this->assertStringContainsString('so_tien=100000', $url);
+        $this->assertStringContainsString('noi_dung=NPAY123', $url);
+        $this->assertStringContainsString('chu_tai_khoan=', $url);
+    }
+
+    public function test_generate_qr_url_bare_qr_and_bank_code(): void
+    {
+        $url = $this->npay(['bank_bin' => 'VCB', 'default_template' => 'qr_only'])->generateQrUrl([
+            'amount' => 5000,
+        ]);
+
+        $this->assertStringStartsWith('https://qr.npay.vn/qrpay?', $url);
+        $this->assertStringContainsString('ngan_hang=vietcombank', $url);
+        $this->assertStringNotContainsString('chu_tai_khoan', $url);
     }
 
     public function test_generate_qr_url_requires_bank_and_account(): void

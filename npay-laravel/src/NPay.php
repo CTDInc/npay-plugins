@@ -32,8 +32,20 @@ class NPay
         return $this->config[$key] ?? $default;
     }
 
+    private const BANK_ALIASES = [
+        'vcb' => 'vietcombank', 'tcb' => 'techcombank', 'ctg' => 'vietinbank', 'icb' => 'vietinbank',
+        'mb' => 'mbbank', 'vpb' => 'vpbank', 'tpb' => 'tpbank', 'stb' => 'sacombank',
+        'hdb' => 'hdbank', 'eib' => 'eximbank', 'vba' => 'agribank', 'agr' => 'agribank',
+        'lpb' => 'lienvietpostbank', 'lpbank' => 'lienvietpostbank', 'nab' => 'namabank',
+        'abb' => 'abbank', 'bab' => 'bacabank', 'pvcb' => 'pvcombank', 'seab' => 'seabank',
+        'klb' => 'kienlongbank', 'vab' => 'vietabank', 'sgicb' => 'saigonbank', 'bvb' => 'banviet',
+    ];
+
     /**
-     * Tạo URL ảnh QR thanh toán (định dạng VietQR-compatible qua qr.npay.vn).
+     * Tạo URL ảnh QR thanh toán từ dịch vụ gen-qr của NPay (qr.npay.vn).
+     *
+     * `/qrcard` = thẻ VietQR đầy đủ, `/qrpay` = chỉ mã QR (template `qr_only`).
+     * `bank` nhận BIN Napas (`970422`) hoặc mã ngân hàng (`mbbank`, `VCB`…).
      *
      * Các tham số hỗ trợ: bank, account, amount, description, template, account_name.
      *
@@ -43,7 +55,7 @@ class NPay
     {
         $bank = $params['bank'] ?? $this->config('bank_bin');
         $account = $params['account'] ?? $this->config('account_number');
-        $template = $params['template'] ?? $this->config('default_template', 'compact');
+        $template = (string) ($params['template'] ?? $this->config('default_template', 'compact'));
         $accountName = $params['account_name'] ?? $this->config('account_holder');
 
         if (empty($bank) || empty($account)) {
@@ -51,25 +63,36 @@ class NPay
         }
 
         $base = rtrim((string) $this->config('qr_base', 'https://qr.npay.vn'), '/');
-        $path = sprintf('/img/%s/%s/%s.png', rawurlencode((string) $bank), rawurlencode((string) $account), rawurlencode((string) $template));
+        $base = (string) preg_replace('#/(img|qrpay|qrcard)$#', '', $base);
+        $bareQr = in_array($template, ['qr_only', 'qronly'], true);
 
-        $query = [];
+        $query = self::bankParam((string) $bank) + ['tai_khoan' => (string) $account];
         if (isset($params['amount']) && $params['amount'] !== '') {
-            $query['amount'] = (int) $params['amount'];
+            $query['so_tien'] = (string) (int) round((float) $params['amount']);
         }
         if (isset($params['description']) && $params['description'] !== '') {
-            $query['des'] = (string) $params['description'];
+            $query['noi_dung'] = (string) $params['description'];
         }
-        if (!empty($accountName)) {
-            $query['accountName'] = (string) $accountName;
-        }
-
-        $url = $base . $path;
-        if (!empty($query)) {
-            $url .= '?' . http_build_query($query);
+        if (!$bareQr && !empty($accountName)) {
+            $query['chu_tai_khoan'] = (string) $accountName;
         }
 
-        return $url;
+        return $base . ($bareQr ? '/qrpay' : '/qrcard') . '?' . http_build_query($query);
+    }
+
+    /**
+     * gen-qr nhận BIN Napas (`ma_bin`) hoặc khoá vietnam-qr-pay (`ngan_hang`).
+     *
+     * @return array<string, string>
+     */
+    public static function bankParam(string $bank): array
+    {
+        $bank = strtolower((string) preg_replace('/[\s_-]+/', '', trim($bank)));
+        if (preg_match('/^\d{6}$/', $bank)) {
+            return ['ma_bin' => $bank];
+        }
+
+        return ['ngan_hang' => self::BANK_ALIASES[$bank] ?? $bank];
     }
 
     /**
@@ -112,25 +135,56 @@ class NPay
     }
 
     /**
-     * Xác thực webhook (header Authorization: Apikey <token>).
+     * Xác thực webhook NPay. Hợp lệ khi khớp MỘT trong hai cách đã cấu hình:
+     *  - `webhook_token`: header `Authorization: Apikey <token>` (nhận cả `Bearer`);
+     *  - `webhook_secret`: `X-Npay-Signature` = hex HMAC-SHA256 của raw body; có
+     *    `X-Npay-Timestamp` thì lệch tối đa `webhook_tolerance` giây (mặc định 300).
+     * Không cấu hình gì → từ chối.
      */
     public function verifyWebhook(Request $request): bool
     {
+        return $this->verifyWebhookToken($request) || $this->verifyWebhookSignature($request);
+    }
+
+    public function hasWebhookCredentials(): bool
+    {
+        return (string) $this->config('webhook_token', '') !== ''
+            || (string) $this->config('webhook_secret', '') !== '';
+    }
+
+    public function verifyWebhookToken(Request $request): bool
+    {
         $expected = (string) $this->config('webhook_token', '');
-        if ($expected === '') {
+        $auth = trim((string) $request->header('Authorization', ''));
+        if ($expected === '' || $auth === '') {
             return false;
         }
 
-        $auth = (string) $request->header('Authorization', '');
-        if ($auth === '') {
-            return false;
-        }
-
-        // Hỗ trợ "Apikey <token>" hoặc "Bearer <token>"
         if (preg_match('/^(Apikey|Bearer)\s+(.+)$/i', $auth, $m)) {
             return hash_equals($expected, trim($m[2]));
         }
 
         return hash_equals($expected, $auth);
+    }
+
+    public function verifyWebhookSignature(Request $request): bool
+    {
+        $secret = (string) $this->config('webhook_secret', '');
+        $signature = strtolower(trim((string) $request->header('X-Npay-Signature', '')));
+        if ($secret === '' || $signature === '') {
+            return false;
+        }
+
+        if (!hash_equals(hash_hmac('sha256', (string) $request->getContent(), $secret), $signature)) {
+            return false;
+        }
+
+        $timestamp = trim((string) $request->header('X-Npay-Timestamp', ''));
+        if ($timestamp === '') {
+            return true;
+        }
+
+        return ctype_digit($timestamp)
+            && abs(time() - (int) $timestamp) <= (int) $this->config('webhook_tolerance', 300);
     }
 }
