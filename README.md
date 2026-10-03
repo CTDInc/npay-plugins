@@ -19,26 +19,66 @@ Bộ tích hợp chính thức cho **NPay** — automate thanh toán Việt Nam.
 
 ## Webhook payload chuẩn
 
-Mọi plugin nhận webhook từ NPay với payload JSON:
+Mọi plugin nhận webhook biến động số dư từ NPay. Body JSON (hoặc form-urlencoded nếu webhook
+chọn kiểu đó):
 
 ```json
 {
-  "id": 123,
+  "id": "tx_8f3k2m9q",
   "gateway": "VietinBank",
   "transactionDate": "2024-01-01 12:00:00",
   "accountNumber": "113366668888",
   "subAccount": null,
-  "code": "NPAY123",
+  "code": null,
   "content": "thanh toan don hang NPAY123",
   "transferType": "in",
   "transferAmount": 500000,
   "accumulated": 19077000,
-  "referenceCode": "MBVCB.3278907687",
-  "description": "..."
+  "referenceCode": null,
+  "description": "thanh toan don hang NPAY123",
+  "timestamp": 1704085200,
+  "nonce": "9b2f0c4e6a1d4f0e8c3b5a7d9e1f2a3b"
 }
 ```
 
-Auth: `Authorization: Apikey <token>` (constant-time compare). Một số plugin hỗ trợ thêm HMAC `X-NPay-Signature: sha256=<hex>`.
+- `id` là **chuỗi** công khai `tx_…` (không phải số) — dùng nó làm khoá chống trùng, NPay có thể
+  gửi lại cùng giao dịch.
+- `code` và `referenceCode` thường `null` (nguồn ngân hàng không gửi) — tìm mã đơn trong `content`,
+  đừng bắt buộc hai trường này.
+- Chỉ xử lý `transferType = "in"`; nhận `transferAmount` **≥** số tiền đơn.
+- Giao dịch không khớp đơn nào trả **200** (kèm lý do) để NPay không gửi lại; chỉ trả 4xx khi sai
+  xác thực / payload hỏng.
+
+### Xác thực
+
+| Header | Giá trị | Nguồn |
+|---|---|---|
+| `Authorization` | `Apikey <key>` — chọn kiểu xác thực **API Key** (plugin không đọc `Basic`) | API key khai khi tạo webhook |
+| `X-Npay-Signature` | hex thường HMAC-SHA256 của **raw body**, **không** có tiền tố `sha256=` | khoá = **webhook secret** do NPay sinh cho từng webhook, hiện trên dashboard khi bật *Ký request* (xoay được) |
+| `X-Npay-Timestamp` | Unix giây lúc gửi | plugin từ chối chữ ký lệch quá 5 phút; thiếu header thì bỏ qua kiểm |
+| `X-Npay-Nonce` | chuỗi ngẫu nhiên | cũng nằm trong body |
+
+Cả 12 plugin nhận `Authorization: Apikey` (so sánh hằng thời gian). Tất cả plugin trừ
+`npay-php-mysql` coi request hợp lệ khi đúng **API key hoặc chữ ký**; `npay-php-mysql` bắt buộc
+Apikey và kiểm thêm chữ ký nếu khai `hmac_secret`. Không khai gì → từ chối.
+
+### QR
+
+Ảnh QR lấy từ dịch vụ gen-qr `https://qr.npay.vn` (endpoint `/img` cũ **không còn**):
+
+- `/qrcard` — thẻ VietQR đầy đủ (logo, chủ TK); `/qrpay` — chỉ mã QR.
+- Tham số: `ngan_hang` (khoá ngân hàng: `mbbank`, `vietcombank`…) **hoặc** `ma_bin` (BIN Napas,
+  vd `970422`), `tai_khoan`, `so_tien`, `noi_dung`, `chu_tai_khoan` (chỉ `/qrcard`).
+
+```
+https://qr.npay.vn/qrcard?ma_bin=970422&tai_khoan=0123456789&so_tien=500000&noi_dung=NPAY123&chu_tai_khoan=NGUYEN+VAN+A
+```
+
+### Public API
+
+`GET https://api.npay.vn/api/v1/transactions/` và `/api/v1/transactions/{tx_id}/`,
+`GET /api/v1/accounts/` — header `Authorization: Bearer <api token zna_…>` (tạo trong dashboard).
+Danh sách trả `{"items": [...], "count", "page", "page_size"}`. SDK `npay-laravel` bọc sẵn.
 
 ## Cài đặt nhanh
 
@@ -81,8 +121,8 @@ Mỗi plugin có README riêng (tiếng Việt) trong thư mục con. Nguyên t�
 
 ## Tài liệu tích hợp
 
-- Dashboard: <https://my.npay.vn/integrations>
-- Developer docs: <https://developer.minhanhfin.tech/>
+- Dashboard: <https://npay.vn>
+- Tài liệu: <https://docs.npay.vn>
 
 ## License
 

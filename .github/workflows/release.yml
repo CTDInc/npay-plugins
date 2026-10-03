@@ -262,7 +262,7 @@ jobs:
             echo "- **Ezyplatform**: copy \`target/npay-ezyplatform-*.jar\` vào plugins folder"
             echo "- **Laravel SDK**: \`composer require npay/laravel\` hoặc copy thủ công"
             echo ""
-            echo "Tài liệu: <https://my.npay.vn/integrations>"
+            echo "Tài liệu: <https://docs.npay.vn>"
           } > release_notes.md
           cat release_notes.md
 
