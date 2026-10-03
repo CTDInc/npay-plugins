@@ -7,8 +7,10 @@ return [
         'title' => 'NPay Settings',
         'api_token' => 'API Token',
         'api_token_helper' => 'NPay API token used for webhook authentication (Authorization: Apikey <token>).',
+        'webhook_secret' => 'Webhook secret',
+        'webhook_secret_helper' => 'Copy from your webhook on the npay.vn dashboard (enable request signing). Verifies X-Npay-Signature; a webhook passes with a valid API token or a valid signature.',
         'account_number' => 'Bank account number',
-        'bank_bin' => 'Bank BIN code',
+        'bank_bin' => 'Bank (BIN or code such as mbbank, VCB)',
         'account_holder' => 'Account holder name',
         'qr_template' => 'QR template',
         'qr_template_options' => [

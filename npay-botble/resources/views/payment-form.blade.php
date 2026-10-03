@@ -5,9 +5,9 @@
 @endpush
 
 @php
-    $accountNumber = setting('npay_account_number');
-    $bankBin = setting('npay_bank_bin');
-    $accountHolder = setting('npay_account_holder');
+    $accountNumber = \Botble\NPay\Services\NPayService::setting('account_number');
+    $bankBin = \Botble\NPay\Services\NPayService::setting('bank_bin');
+    $accountHolder = \Botble\NPay\Services\NPayService::setting('account_holder');
     $qr = $qr_url ?? session('qr_url');
     $code = $code ?? session('code') ?? ($payment->charge_id ?? '');
     $statusUrl = $status_url ?? route('npay.status', ['payment' => $payment->getKey() ?? 0]);

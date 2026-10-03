@@ -4,6 +4,7 @@ namespace Botble\NPay\Providers;
 
 use Botble\Base\Supports\ServiceProvider;
 use Botble\Payment\Enums\PaymentMethodEnum;
+use Botble\Payment\Facades\PaymentMethods;
 use Botble\Payment\Services\Gateways\PaymentMethodInterface;
 use Botble\NPay\Services\NPayService;
 use Illuminate\Http\Request;

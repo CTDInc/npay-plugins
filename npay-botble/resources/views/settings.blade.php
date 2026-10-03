@@ -2,11 +2,12 @@
 
 @section('payment_method')
     @php
-        $accountNumber = setting('npay_account_number');
-        $bankBin = setting('npay_bank_bin');
-        $accountHolder = setting('npay_account_holder');
-        $apiToken = setting('npay_api_token');
-        $qrTemplate = setting('npay_qr_template', config('plugins.npay.default_template', 'compact'));
+        $accountNumber = \Botble\NPay\Services\NPayService::setting('account_number');
+        $bankBin = \Botble\NPay\Services\NPayService::setting('bank_bin');
+        $accountHolder = \Botble\NPay\Services\NPayService::setting('account_holder');
+        $apiToken = \Botble\NPay\Services\NPayService::setting('api_token');
+        $webhookSecret = \Botble\NPay\Services\NPayService::setting('webhook_secret');
+        $qrTemplate = \Botble\NPay\Services\NPayService::setting('qr_template', config('plugins.npay.default_template', 'compact'));
         $webhookUrl = url(config('plugins.npay.webhook_path', 'api/webhooks/npay'));
     @endphp
 
@@ -31,6 +32,20 @@
                    placeholder="npay_xxx">
             <small class="text-muted">
                 {{ __('plugins/npay::plugin.settings.api_token_helper') }}
+            </small>
+        </div>
+
+        <div class="col-md-6 form-group">
+            <label class="text-title-field" for="npay_webhook_secret">
+                {{ __('plugins/npay::plugin.settings.webhook_secret') }}
+            </label>
+            <input type="text"
+                   class="form-control"
+                   id="npay_webhook_secret"
+                   name="payment_npay_webhook_secret"
+                   value="{{ $webhookSecret }}">
+            <small class="text-muted">
+                {{ __('plugins/npay::plugin.settings.webhook_secret_helper') }}
             </small>
         </div>
 

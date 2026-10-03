@@ -4,10 +4,10 @@ Plugin tích hợp cổng thanh toán **NPay** (VietQR) cho Botble CMS, hỗ tr�
 
 ## Tính năng
 
-- ✅ Hiển thị mã QR VietQR động tại trang thanh toán (`https://qr.npay.vn/img`).
+- ✅ Hiển thị mã QR VietQR động tại trang thanh toán (`https://qr.npay.vn/qrcard`, `/qrpay` khi chọn mẫu "Chỉ QR").
 - ✅ Webhook đối soát tự động — cập nhật `Payment.status` thành `COMPLETED` khi khớp `charge_id` với mã `NPAY-{order_id}`.
 - ✅ Trang chờ thanh toán có polling 5 giây để chuyển trạng thái tức thì.
-- ✅ Xác thực webhook bằng header `Authorization: Apikey <token>`.
+- ✅ Xác thực webhook bằng header `Authorization: Apikey <token>` hoặc chữ ký `X-Npay-Signature`.
 - ✅ Hỗ trợ song ngữ (Tiếng Việt / English).
 
 ## Yêu cầu
@@ -42,9 +42,10 @@ Truy cập **Admin > Settings > Payment Methods > NPay**, điền:
 
 | Trường | Mô tả |
 |---|---|
-| API Token | Token cấp từ dashboard NPay (`https://app.npay.vn`) |
+| API Token | API key của webhook trên dashboard NPay (<https://npay.vn>), kiểu xác thực **API Key** |
+| Webhook secret | (Tuỳ chọn) webhook secret trên dashboard khi bật **Ký request** |
 | Số tài khoản | Số tài khoản nhận tiền |
-| Bank BIN | Mã BIN ngân hàng (vd. `970422` cho MB Bank) |
+| Bank BIN | Mã BIN ngân hàng (vd. `970422` cho MB Bank) hoặc mã như `mbbank`, `VCB` |
 | Chủ tài khoản | Tên chủ tài khoản |
 | Mẫu QR | `compact` / `qr_only` / `print` |
 
@@ -62,20 +63,28 @@ Payload mẫu:
 
 ```json
 {
-  "transaction_id": "TXN123456",
-  "amount": 100000,
-  "memo": "NPAY-12345",
-  "code": "NPAY-12345",
-  "bank_bin": "970422",
-  "account_number": "0123456789"
+  "id": "tx_8f3k2m9q",
+  "gateway": "MBBank",
+  "transactionDate": "2026-10-03 10:00:00",
+  "accountNumber": "0123456789",
+  "code": null,
+  "content": "NPAY12345 thanh toan",
+  "transferType": "in",
+  "transferAmount": 100000,
+  "referenceCode": null
 }
 ```
 
 Plugin sẽ:
-1. Xác thực header `Authorization: Apikey <token>`.
-2. Trích xuất mã `NPAY-{order_id}` từ `memo` / `code` / `content` / `transferContent`.
-3. Tìm `Payment` có `charge_id` chứa mã.
-4. Cập nhật `status = COMPLETED`.
+1. Xác thực `Authorization: Apikey <token>` **hoặc** `X-Npay-Signature` = hex HMAC-SHA256 của raw
+   body khoá bằng webhook secret (có `X-Npay-Timestamp` thì lệch tối đa 5 phút). Sai → 401.
+2. Bỏ qua giao dịch `transferType` khác `"in"`.
+3. Trích xuất mã `NPAY-{order_id}` từ `code` / `content` / `memo` / `transferContent` / `description`.
+4. Tìm `Payment` có `charge_id` đúng bằng mã; `transferAmount` phải **≥** số tiền.
+5. Cập nhật `status = COMPLETED`.
+
+Giao dịch không khớp đơn nào (không có mã, không tìm thấy, chuyển thiếu) vẫn trả **200** kèm
+`"message": "Ignored: …"` để NPay không gửi lại mãi.
 
 ## Cấu trúc plugin
 
@@ -98,6 +107,15 @@ npay-botble/
 ├── database/migrations/2025_01_01_000000_create_npay_table.php
 └── screenshots/screenshot.png
 ```
+
+## Thay đổi
+
+### 1.1.0
+
+- QR chuyển sang `https://qr.npay.vn/qrcard` (`/img` không còn); dashboard `https://npay.vn`.
+- Webhook: thêm xác thực `X-Npay-Signature` (webhook secret), chỉ nhận `transferType = "in"`,
+  đòi số tiền ≥ đơn, khớp `charge_id` chính xác thay vì `LIKE`, trả 200 cho giao dịch không khớp.
+- Đọc cấu hình từ khoá `payment_npay_*` (khoá Botble thực lưu), vẫn đọc `npay_*` cũ.
 
 ## Giấy phép
 

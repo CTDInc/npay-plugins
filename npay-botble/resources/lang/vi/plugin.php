@@ -7,8 +7,10 @@ return [
         'title' => 'Cấu hình NPay',
         'api_token' => 'Mã API Token',
         'api_token_helper' => 'API token của NPay dùng để xác thực webhook (Authorization: Apikey <token>).',
+        'webhook_secret' => 'Webhook secret',
+        'webhook_secret_helper' => 'Sao chép từ webhook trên dashboard npay.vn (bật "Ký request"). Dùng để kiểm X-Npay-Signature; webhook hợp lệ khi đúng API token hoặc đúng chữ ký.',
         'account_number' => 'Số tài khoản ngân hàng',
-        'bank_bin' => 'Mã BIN ngân hàng',
+        'bank_bin' => 'Ngân hàng (mã BIN hoặc mã như mbbank, VCB)',
         'account_holder' => 'Tên chủ tài khoản',
         'qr_template' => 'Mẫu QR',
         'qr_template_options' => [

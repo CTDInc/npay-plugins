@@ -16,7 +16,9 @@ class NPayService
 
     public function getQrBase(): string
     {
-        return rtrim(config('plugins.npay.qr_base'), '/');
+        $base = rtrim((string) config('plugins.npay.qr_base', 'https://qr.npay.vn'), '/');
+
+        return (string) preg_replace('#/(img|qrpay|qrcard)$#', '', $base);
     }
 
     public function generateOrderCode($orderId = null): string
@@ -27,43 +29,88 @@ class NPayService
         return $prefix . '-' . $suffix;
     }
 
-    public function buildQrUrl(array $params): string
-    {
-        $query = http_build_query(array_filter([
-            'acc' => $params['account_number'] ?? setting('npay_account_number'),
-            'bank' => $params['bank_bin'] ?? setting('npay_bank_bin'),
-            'name' => $params['account_holder'] ?? setting('npay_account_holder'),
-            'amount' => $params['amount'] ?? 0,
-            'memo' => $params['memo'] ?? '',
-            'template' => $params['template'] ?? setting('npay_qr_template', config('plugins.npay.default_template')),
-        ]));
+    private const BANK_ALIASES = [
+        'vcb' => 'vietcombank', 'tcb' => 'techcombank', 'ctg' => 'vietinbank', 'icb' => 'vietinbank',
+        'mb' => 'mbbank', 'vpb' => 'vpbank', 'tpb' => 'tpbank', 'stb' => 'sacombank',
+        'hdb' => 'hdbank', 'eib' => 'eximbank', 'vba' => 'agribank', 'agr' => 'agribank',
+        'lpb' => 'lienvietpostbank', 'lpbank' => 'lienvietpostbank', 'nab' => 'namabank',
+        'abb' => 'abbank', 'bab' => 'bacabank', 'pvcb' => 'pvcombank', 'seab' => 'seabank',
+        'klb' => 'kienlongbank', 'vab' => 'vietabank', 'sgicb' => 'saigonbank', 'bvb' => 'banviet',
+    ];
 
-        return $this->getQrBase() . '?' . $query;
+    /**
+     * Botble stores payment-method fields under `payment_npay_<key>`; older
+     * installs of this plugin read `npay_<key>`, so fall back to that.
+     */
+    public static function setting(string $key, $default = null)
+    {
+        $value = setting('payment_npay_' . $key);
+        if ($value === null || $value === '') {
+            $value = setting('npay_' . $key, $default);
+        }
+
+        return $value ?? $default;
     }
 
+    public function buildQrUrl(array $params): string
+    {
+        $template = $params['template'] ?? self::setting('qr_template', config('plugins.npay.default_template'));
+        $bareQr = in_array($template, ['qr_only', 'qronly'], true);
+
+        $query = array_filter(self::bankParam((string) ($params['bank_bin'] ?? self::setting('bank_bin'))) + [
+            'tai_khoan' => $params['account_number'] ?? self::setting('account_number'),
+            'so_tien' => (string) (int) round((float) ($params['amount'] ?? 0)),
+            'noi_dung' => $params['memo'] ?? '',
+            'chu_tai_khoan' => $bareQr ? null : ($params['account_holder'] ?? self::setting('account_holder')),
+        ], fn ($v) => $v !== null && $v !== '');
+
+        return $this->getQrBase() . ($bareQr ? '/qrpay?' : '/qrcard?') . http_build_query($query);
+    }
+
+    /**
+     * gen-qr takes either a Napas BIN (`ma_bin`) or a vietnam-qr-pay key (`ngan_hang`).
+     */
+    public static function bankParam(string $bank): array
+    {
+        $bank = strtolower((string) preg_replace('/[\s_-]+/', '', trim($bank)));
+        if (preg_match('/^\d{6}$/', $bank)) {
+            return ['ma_bin' => $bank];
+        }
+
+        return ['ngan_hang' => self::BANK_ALIASES[$bank] ?? $bank];
+    }
+
+    /**
+     * Accepts `Authorization: Apikey <api_token>` or, when a webhook secret is
+     * configured, `X-Npay-Signature` = hex HMAC-SHA256 of the raw body
+     * (X-Npay-Timestamp, if sent, must be within 5 minutes).
+     */
     public function verifyWebhook($request): bool
     {
-        $authHeader = $request->header('Authorization', '');
-        $expectedToken = setting('npay_api_token', '');
-
-        if (! $expectedToken || ! $authHeader) {
-            return false;
+        $expectedToken = (string) self::setting('api_token', '');
+        $authHeader = trim((string) $request->header('Authorization', ''));
+        if ($expectedToken !== '' && preg_match('/^Apikey\s+(.+)$/i', $authHeader, $m)
+            && hash_equals($expectedToken, trim($m[1]))) {
+            return true;
         }
 
-        if (! Str::startsWith($authHeader, 'Apikey ')) {
+        $secret = (string) self::setting('webhook_secret', '');
+        $signature = strtolower(trim((string) $request->header('X-Npay-Signature', '')));
+        if ($secret === '' || $signature === '') {
             return false;
         }
+        if (! hash_equals(hash_hmac('sha256', $request->getContent(), $secret), $signature)) {
+            return false;
+        }
+        $timestamp = trim((string) $request->header('X-Npay-Timestamp', ''));
 
-        $token = trim(substr($authHeader, 7));
-
-        return hash_equals($expectedToken, $token);
+        return $timestamp === '' || (ctype_digit($timestamp) && abs(time() - (int) $timestamp) <= 300);
     }
 
     public function findPaymentByCode(string $code): ?Payment
     {
         return Payment::query()
-            ->where('charge_id', 'LIKE', '%' . $code . '%')
-            ->orWhere('description', 'LIKE', '%' . $code . '%')
+            ->where('charge_id', $code)
             ->latest()
             ->first();
     }

@@ -21,29 +21,35 @@ class NPayWebhookController extends BaseController
         if (! $this->service->verifyWebhook($request)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid or missing Apikey token.',
+                'message' => 'Invalid or missing Apikey token / X-Npay-Signature.',
             ], 401);
         }
 
         $payload = $request->all();
 
-        $code = $payload['code']
-            ?? $payload['memo']
-            ?? $payload['content']
-            ?? $payload['transferContent']
-            ?? null;
+        if (strtolower((string) ($payload['transferType'] ?? 'in')) !== 'in') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Ignored: not an incoming transfer.',
+            ]);
+        }
+
+        $orderPrefix = config('plugins.npay.order_prefix', 'NPAY');
+        $code = null;
+        foreach (['code', 'content', 'memo', 'transferContent', 'description'] as $field) {
+            $text = (string) ($payload[$field] ?? '');
+            if ($text !== '' && preg_match('/' . preg_quote($orderPrefix, '/') . '[-_ ]?([A-Za-z0-9]+)/i', $text, $matches)) {
+                $code = $orderPrefix . '-' . $matches[1];
+
+                break;
+            }
+        }
 
         if (! $code) {
             return response()->json([
-                'success' => false,
-                'message' => 'Missing transfer code/memo.',
-            ], 422);
-        }
-
-        // Extract NPAY-{order_id} from memo if present
-        $orderPrefix = config('plugins.npay.order_prefix', 'NPAY');
-        if (preg_match('/' . preg_quote($orderPrefix, '/') . '[-_]?([A-Za-z0-9]+)/', $code, $matches)) {
-            $code = $orderPrefix . '-' . $matches[1];
+                'success' => true,
+                'message' => 'Ignored: no order code in transfer content.',
+            ]);
         }
 
         $payment = $this->service->findPaymentByCode($code);
@@ -55,15 +61,30 @@ class NPayWebhookController extends BaseController
             ]);
 
             return response()->json([
-                'success' => false,
-                'message' => 'No matching payment for code: ' . $code,
-            ], 404);
+                'success' => true,
+                'message' => 'Ignored: no matching payment for code ' . $code . '.',
+            ]);
         }
 
         if ((string) $payment->status === (string) PaymentStatusEnum::COMPLETED) {
             return response()->json([
                 'success' => true,
                 'message' => 'Payment already completed.',
+                'payment_id' => $payment->getKey(),
+            ]);
+        }
+
+        $received = (float) ($payload['transferAmount'] ?? $payload['amount'] ?? 0);
+        if ($received + 0.01 < (float) $payment->amount) {
+            Log::warning('[NPay] Underpaid transfer, payment left pending.', [
+                'payment_id' => $payment->getKey(),
+                'expected' => $payment->amount,
+                'received' => $received,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ignored: transferred amount is less than the payment amount.',
                 'payment_id' => $payment->getKey(),
             ]);
         }
