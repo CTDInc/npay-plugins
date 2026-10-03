@@ -4,7 +4,7 @@ Tags: woocommerce, payment, gateway, vietnam, bank transfer, qr code, vietqr, np
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPL-2.0+
 License URI: https://www.gnu.org/licenses/gpl-2.0.txt
 
@@ -45,6 +45,10 @@ Either `Authorization: Apikey <token>` or `X-Npay-Signature: <hmac-sha256>`. Con
 Copy `templates/payment-instructions.php` to `yourtheme/npay-woocommerce/payment-instructions.php` and edit.
 
 == Changelog ==
+
+= 1.0.1 =
+* Đường dẫn dashboard đổi sang https://npay.vn (my.npay.vn không còn).
+* Chữ ký X-Npay-Signature: từ chối request có X-Npay-Timestamp lệch quá 5 phút.
 
 = 1.0.0 =
 * Initial release.

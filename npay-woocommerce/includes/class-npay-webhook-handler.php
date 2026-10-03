@@ -105,8 +105,11 @@ class NPay_Webhook_Handler {
 		if ( '' !== $secret && '' !== $signature ) {
 			$body     = $request->get_body();
 			$computed = hash_hmac( 'sha256', $body, $secret );
-			if ( hash_equals( $computed, trim( $signature ) ) ) {
-				return true;
+			if ( hash_equals( $computed, strtolower( trim( $signature ) ) ) ) {
+				$timestamp = trim( (string) $request->get_header( 'x_npay_timestamp' ) );
+				if ( '' === $timestamp || ( ctype_digit( $timestamp ) && abs( time() - (int) $timestamp ) <= 300 ) ) {
+					return true;
+				}
 			}
 		}
 

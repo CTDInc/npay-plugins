@@ -53,7 +53,7 @@ Vào **WooCommerce → Settings → Payments → NPay** (hoặc click "Settings"
 
 ## Cấu hình webhook trên dashboard NPay
 
-1. Đăng nhập [my.npay.vn](https://my.npay.vn).
+1. Đăng nhập [npay.vn](https://npay.vn).
 2. Vào **Cài đặt → Webhook → Thêm webhook**.
 3. Điền **URL** là webhook của site bạn:
    ```
@@ -120,4 +120,4 @@ curl -X POST https://your-domain.com/wp-json/npay/v1/webhook \
 
 - Website: <https://npay.vn>
 - Tài liệu: <https://docs.npay.vn>
-- Dashboard: <https://my.npay.vn>
+- Dashboard: <https://npay.vn>

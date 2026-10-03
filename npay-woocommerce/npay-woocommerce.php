@@ -3,7 +3,7 @@
  * Plugin Name: NPay for WooCommerce
  * Plugin URI: https://npay.vn/
  * Description: NPay payment gateway integration for WooCommerce. Accept bank transfer payments with automatic reconciliation via NPay webhooks and QR codes.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: NPay
  * Author URI: https://npay.vn/
  * License: GPL-2.0+
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants.
-define( 'NPAY_WC_VERSION', '1.0.0' );
+define( 'NPAY_WC_VERSION', '1.0.1' );
 define( 'NPAY_WC_PLUGIN_FILE', __FILE__ );
 define( 'NPAY_WC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'NPAY_WC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -36,7 +36,7 @@ if ( ! defined( 'NPAY_QR_BASE' ) ) {
 	define( 'NPAY_QR_BASE', 'https://qr.npay.vn' );
 }
 if ( ! defined( 'NPAY_DASHBOARD_URL' ) ) {
-	define( 'NPAY_DASHBOARD_URL', 'https://my.npay.vn' );
+	define( 'NPAY_DASHBOARD_URL', 'https://npay.vn' );
 }
 
 /**
