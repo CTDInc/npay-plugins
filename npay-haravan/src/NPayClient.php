@@ -49,42 +49,35 @@ class NPayClient
     }
 
     /**
-     * Verify NPay webhook signature.
-     *
-     * NPay sends "Authorization: Apikey <secret>" plus optional HMAC header.
-     * We accept either a matching API key or a valid HMAC-SHA256 of the raw body.
+     * Verify an NPay webhook. Passes when EITHER:
+     *  - `Authorization: Apikey <api_key>` matches `npay.api_key` (falls back to
+     *    `npay.webhook_secret` for configs written before 1.1.0), or
+     *  - `X-Npay-Signature` = hex HMAC-SHA256(raw body, `npay.webhook_secret`),
+     *    with `X-Npay-Timestamp` (if sent) no older than 5 minutes.
      */
     public function verifyWebhook(string $rawBody, array $headers): bool
     {
         $secret = (string)($this->cfg['webhook_secret'] ?? '');
-        if ($secret === '') {
-            return false;
+        $apiKey = (string)($this->cfg['api_key'] ?? '');
+        if ($apiKey === '') {
+            $apiKey = $secret;
         }
 
-        // Normalize headers to lower-case keys.
         $h = [];
         foreach ($headers as $k => $v) {
-            $h[strtolower($k)] = is_array($v) ? ($v[0] ?? '') : $v;
+            $h[strtolower((string)$k)] = is_array($v) ? ($v[0] ?? '') : (string)$v;
         }
 
-        // Authorization: Apikey <secret>
-        $auth = (string)($h['authorization'] ?? '');
-        if (stripos($auth, 'apikey ') === 0) {
-            $token = trim(substr($auth, 7));
-            if (hash_equals($secret, $token)) {
-                return true;
-            }
+        $auth = trim((string)($h['authorization'] ?? ''));
+        if ($apiKey !== '' && preg_match('/^Apikey\s+(.+)$/i', $auth, $m) && hash_equals($apiKey, trim($m[1]))) {
+            return true;
         }
 
-        // X-NPay-Signature: hex(hmac_sha256(body, secret))
-        $sig = (string)($h['x-npay-signature'] ?? '');
-        if ($sig !== '') {
-            $expect = hash_hmac('sha256', $rawBody, $secret);
-            if (hash_equals($expect, $sig)) {
-                return true;
-            }
+        $sig = strtolower(trim((string)($h['x-npay-signature'] ?? '')));
+        if ($secret === '' || $sig === '' || !hash_equals(hash_hmac('sha256', $rawBody, $secret), $sig)) {
+            return false;
         }
-
-        return false;
+        $ts = trim((string)($h['x-npay-timestamp'] ?? ''));
+        return $ts === '' || (ctype_digit($ts) && abs(time() - (int)$ts) <= 300);
     }
 }

@@ -64,17 +64,24 @@ Trong `config.php`:
     'bank_id'        => 'BIDV',
     'account_number' => '0123456789',
     'account_name'   => 'CONG TY NPAY',
-    'webhook_secret' => 'CHANGE_ME',
+    'api_key'        => '',   // Authorization: Apikey <api_key>
+    'webhook_secret' => '',   // X-Npay-Signature
     'qr_template'    => 'compact2',
 ],
 ```
 
-Trong portal NPay/SePay, cấu hình **Webhook URL**: `{app_url}/webhook/npay`.
+Trên dashboard NPay (<https://npay.vn>), tạo webhook với **URL** `{app_url}/webhook/npay`.
 
-App chấp nhận xác thực qua **một trong hai** cơ chế:
+App chấp nhận xác thực qua **một trong hai** cơ chế (không khai gì → từ chối mọi webhook):
 
-- Header `Authorization: Apikey <webhook_secret>` (tương thích SePay).
-- Header `X-NPay-Signature: <hex(hmac_sha256(body, webhook_secret))>`.
+- `Authorization: Apikey <api_key>` — kiểu xác thực **API Key** trên dashboard. Bản cấu hình
+  cũ chưa có `api_key` thì so với `webhook_secret`.
+- `X-Npay-Signature` = hex HMAC-SHA256 của raw body (không tiền tố `sha256=`), khoá là
+  **webhook secret** hiện trên dashboard khi bật **Ký request**. `X-Npay-Timestamp` lệch quá
+  5 phút bị từ chối.
+
+> Webhook secret do NPay sinh cho từng webhook, không tự đặt được — trước 1.1.0 app dùng một
+> giá trị cho cả API key lẫn khoá HMAC nên chữ ký thật của NPay không bao giờ khớp.
 
 ## Các route
 
@@ -109,6 +116,12 @@ php -S 0.0.0.0:8080 index.php
 ```
 
 (Bạn cần Apache/Nginx với rewrite để route đẹp; built-in server chỉ phục vụ debug.)
+
+## Thay đổi
+
+### 1.1.0
+
+- Tách `npay.api_key` (Apikey) khỏi `npay.webhook_secret` (HMAC); kiểm `X-Npay-Timestamp`.
 
 ## Giấy phép
 

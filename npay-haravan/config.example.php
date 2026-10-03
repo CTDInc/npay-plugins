@@ -26,7 +26,11 @@ return [
         'bank_id'         => 'BIDV',          // BIN/short code of receiving bank
         'account_number'  => '0123456789',
         'account_name'    => 'CONG TY NPAY',
-        'webhook_secret'  => 'CHANGE_ME_NPAY_WEBHOOK_SECRET',
+        // Webhook auth — paste from the webhook on https://npay.vn. Either one is enough:
+        //   api_key:        sent as `Authorization: Apikey <key>` (auth type "API Key")
+        //   webhook_secret: signs the raw body, `X-Npay-Signature` = hex HMAC-SHA256
+        'api_key'         => '',
+        'webhook_secret'  => '',
         'qr_template'     => 'compact2',
     ],
 
