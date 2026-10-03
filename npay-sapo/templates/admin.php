@@ -33,8 +33,9 @@
         <h2>Cấu hình thanh toán</h2>
         <form method="post" action="/admin/save">
             <input type="hidden" name="store_id" value="<?= (int)$store['id'] ?>">
-            <label>NPay API token<input name="api_key" value="<?= htmlspecialchars((string)($store['api_key'] ?? '')) ?>"></label>
-            <label>Mã ngân hàng (VCB, TCB…)<input name="bank_code" value="<?= htmlspecialchars((string)($store['bank_code'] ?? '')) ?>"></label>
+            <label>NPay API key (header <code>Authorization: Apikey</code>)<input name="api_key" value="<?= htmlspecialchars((string)($store['api_key'] ?? '')) ?>"></label>
+            <label>NPay webhook secret (ký <code>X-Npay-Signature</code>, sao chép từ dashboard npay.vn)<input name="npay_webhook_secret" value="<?= htmlspecialchars((string)($store['npay_webhook_secret'] ?? '')) ?>"></label>
+            <label>Ngân hàng (VCB, MB, vietcombank… hoặc mã BIN)<input name="bank_code" value="<?= htmlspecialchars((string)($store['bank_code'] ?? '')) ?>"></label>
             <label>Số tài khoản<input name="account_number" value="<?= htmlspecialchars((string)($store['account_number'] ?? '')) ?>"></label>
             <label>Chủ tài khoản<input name="account_name" value="<?= htmlspecialchars((string)($store['account_name'] ?? '')) ?>"></label>
             <label>Sapo webhook HMAC secret<input name="webhook_secret" value="<?= htmlspecialchars((string)($store['webhook_secret'] ?? '')) ?>"></label>

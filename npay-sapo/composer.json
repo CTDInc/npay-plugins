@@ -2,6 +2,7 @@
     "name": "npay/sapo",
     "description": "NPay payment integration for Sapo (Bizweb) - OAuth app with QR/webhook flow",
     "type": "project",
+    "version": "1.1.0",
     "license": "MIT",
     "require": {
         "php": ">=8.1",

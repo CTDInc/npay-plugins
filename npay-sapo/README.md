@@ -66,6 +66,8 @@ cp config.example.php config.php   # rồi sửa giá trị
 mysql -u root -p npay_sapo < migrations/001_init.sql
 ```
 
+Nâng cấp từ 1.0.x: chạy thêm `migrations/002_npay_webhook_secret.sql`.
+
 ### Biến cấu hình quan trọng (`config.php`)
 
 | Khoá | Ý nghĩa |
@@ -73,8 +75,8 @@ mysql -u root -p npay_sapo < migrations/001_init.sql
 | `app_url` | URL công khai của app, không có `/` cuối |
 | `sapo_client_id` / `sapo_client_secret` | Lấy ở Sapo Developer Portal |
 | `sapo_scopes` | Mặc định `read_orders,write_orders,read_products` |
-| `npay_webhook_secret` | Khoá ký webhook NPay (fallback nếu không dùng Bearer) |
-| `npay_qr_endpoint` | Endpoint sinh ảnh QR của NPay |
+| `npay_webhook_secret` | Webhook secret NPay dùng chung cho cửa hàng chưa khai riêng (để trống = tắt) |
+| `npay_qr_endpoint` | Gốc dịch vụ QR NPay, mặc định `https://qr.npay.vn` (app gọi `/qrcard`) |
 | `db_dsn` / `db_user` / `db_pass` | Kết nối PDO |
 | `payment_ttl` | Thời gian sống trang QR (giây) |
 
@@ -100,8 +102,9 @@ app nhận `code`, đổi lấy `access_token` và lưu vào bảng `stores`.
 
 ## Cấu hình NPay
 
-Tại NPay Dashboard, đặt **Webhook URL** = `https://<APP_URL>/webhook/npay`,
-và sao chép API token vào trang quản trị app:
+Tại [NPay Dashboard](https://npay.vn), tạo webhook với **URL** =
+`https://<APP_URL>/webhook/npay`, kiểu xác thực **API Key**, bật **Ký request**.
+Sao chép API key và **webhook secret** của webhook đó vào trang quản trị app:
 
 ```
 https://<APP_URL>/admin?store=<store_id>
@@ -109,8 +112,12 @@ https://<APP_URL>/admin?store=<store_id>
 
 Khai báo:
 
-- `NPay API token`
-- Mã ngân hàng (VCB, TCB, MB, …)
+- `NPay API key` — NPay gửi `Authorization: Apikey <key>` (vẫn nhận `Bearer` cho bản cũ)
+- `NPay webhook secret` — app kiểm `X-Npay-Signature` = hex HMAC-SHA256 của raw body
+  (không có tiền tố `sha256=`), và từ chối nếu `X-Npay-Timestamp` lệch quá 5 phút
+
+  Webhook hợp lệ khi khớp **một trong hai**; không khai cả hai thì mọi webhook bị từ chối.
+- Ngân hàng (VCB, TCB, MB, `vietcombank`, … hoặc mã BIN 6 số)
 - Số tài khoản nhận tiền
 - Chủ tài khoản
 - Sapo webhook HMAC secret
@@ -143,7 +150,18 @@ docker run -d --name npay-sapo \
   npay/sapo
 ```
 
+## Thay đổi
+
+### 1.1.0
+
+- QR chuyển sang `https://qr.npay.vn/qrcard` (endpoint `/img` cũ không còn).
+- Webhook NPay nhận `Authorization: Apikey <key>`; chữ ký `X-Npay-Signature` dùng
+  webhook secret riêng từng cửa hàng (cột mới `npay_webhook_secret`).
+- Chỉ ghi nhận giao dịch `transferType = "in"`; chuyển dư vẫn tính là đã thanh toán.
+
 ## Tham chiếu
+
+- Tài liệu NPay: <https://docs.npay.vn>
 
 - Sapo Developer: <https://developers.sapo.vn/>
 - SePay integration guide (tham khảo flow QR): <https://docs.sepay.vn/tich-hop-sapo.html>

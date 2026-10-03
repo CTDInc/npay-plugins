@@ -65,7 +65,7 @@ class Database
 
     public function updateStoreSettings(int $id, array $fields): void
     {
-        $allowed = ['api_key', 'account_number', 'account_name', 'bank_code', 'webhook_secret'];
+        $allowed = ['api_key', 'account_number', 'account_name', 'bank_code', 'webhook_secret', 'npay_webhook_secret'];
         $set = [];
         $params = [':id' => $id];
         foreach ($allowed as $k) {

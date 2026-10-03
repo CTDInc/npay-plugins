@@ -97,6 +97,7 @@ $router->post('/admin/save', function () use ($db): void {
         'account_name'   => trim((string)($_POST['account_name'] ?? '')),
         'bank_code'      => trim((string)($_POST['bank_code'] ?? '')),
         'webhook_secret' => trim((string)($_POST['webhook_secret'] ?? '')),
+        'npay_webhook_secret' => trim((string)($_POST['npay_webhook_secret'] ?? '')),
     ]);
     header('Location: /admin?store=' . $storeId . '&saved=1');
 });

@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS stores (
     account_name    VARCHAR(190) DEFAULT NULL,
     bank_code       VARCHAR(32)  DEFAULT NULL,
     webhook_secret  VARCHAR(190) DEFAULT NULL COMMENT 'Sapo HMAC shared secret',
+    npay_webhook_secret VARCHAR(190) DEFAULT NULL COMMENT 'NPay Webhook.secret (HMAC X-Npay-Signature)',
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),

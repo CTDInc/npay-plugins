@@ -14,10 +14,10 @@ return [
     // Scopes requested when installing on a Sapo store.
     'sapo_scopes' => 'read_orders,write_orders,read_products',
 
-    // NPay platform credentials. Per-store API key/account is stored in DB,
-    // these are global defaults / webhook signing key.
-    'npay_webhook_secret' => getenv('NPAY_WEBHOOK_SECRET') ?: 'change-me-npay-webhook-secret',
-    'npay_qr_endpoint'    => getenv('NPAY_QR_ENDPOINT')    ?: 'https://qr.npay.vn/img',
+    // NPay platform credentials. Per-store API key + webhook secret live in DB;
+    // this secret is only a fallback for stores without their own. Empty = off.
+    'npay_webhook_secret' => getenv('NPAY_WEBHOOK_SECRET') ?: '',
+    'npay_qr_endpoint'    => getenv('NPAY_QR_ENDPOINT')    ?: 'https://qr.npay.vn',
     'npay_api_base'       => getenv('NPAY_API_BASE')       ?: 'https://api.npay.vn',
 
     // Database DSN (PDO). Default MySQL; swap for sqlite during dev.

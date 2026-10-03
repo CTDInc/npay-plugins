@@ -35,7 +35,11 @@ class NPayWebhook
         $this->db->logWebhook('npay', $payload['event'] ?? null, $payload);
 
         $tx  = $this->npay->parseTransaction($payload);
-        $ref = $this->npay->extractRefCode($tx['content']);
+        if ($tx['type'] !== 'in') {
+            $this->respond(200, ['ok' => false, 'reason' => 'not an incoming transfer']);
+            return;
+        }
+        $ref = $this->npay->extractRefCode($tx['code'] . ' ' . $tx['content']);
         if (!$ref) {
             $this->respond(200, ['ok' => false, 'reason' => 'no ref code in content']);
             return;
@@ -53,26 +57,25 @@ class NPayWebhook
             return;
         }
 
-        // Per-store NPay token authentication — fail closed: an unset secret
-        // must reject, never accept an unverified webhook.
-        $apiKey = (string)($store['api_key'] ?? '');
-        if ($apiKey === '' || !$this->npay->verifyWebhook($headers, $raw, $apiKey)) {
+        if (!$this->npay->verifyWebhook(
+            $headers,
+            $raw,
+            (string)($store['api_key'] ?? ''),
+            (string)($store['npay_webhook_secret'] ?? '')
+        )) {
             $this->respond(401, ['error' => 'invalid signature']);
             return;
         }
 
-        // Already paid? idempotent.
         if ($order['status'] === 'paid') {
             $this->respond(200, ['ok' => true, 'already_paid' => true]);
             return;
         }
 
-        // Amount check.
-        if ($tx['amount'] > 0 && (float)$order['amount'] > 0
-            && abs($tx['amount'] - (float)$order['amount']) > 0.01) {
+        if ($tx['amount'] + 0.01 < (float)$order['amount']) {
             $this->respond(200, [
                 'ok'       => false,
-                'reason'   => 'amount mismatch',
+                'reason'   => 'underpaid',
                 'expected' => $order['amount'],
                 'got'      => $tx['amount'],
             ]);
