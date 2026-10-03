@@ -4,7 +4,7 @@ Cổng thanh toán **NPay** cho **LearnPress** - tự động xác nhận thanh 
 
 ## Tính năng
 
-- Hiển thị mã QR chuyển khoản (qua `https://qr.npay.vn/img`) ngay sau khi đặt mua khoá học.
+- Hiển thị mã QR chuyển khoản (qua `https://qr.npay.vn/qrcard`) ngay sau khi đặt mua khoá học.
 - Sinh mã giao dịch `NPAY{order_id}` để khớp nội dung chuyển khoản.
 - Webhook nhận giao dịch từ NPay → tự động cập nhật đơn LearnPress thành `completed` và mở khoá học cho học viên.
 - Tự động polling trạng thái đơn hàng mỗi 4 giây, đếm ngược thời gian hết hạn.
@@ -21,7 +21,8 @@ Cổng thanh toán **NPay** cho **LearnPress** - tự động xác nhận thanh 
 1. Tải/upload thư mục `npay-learnpress` vào `wp-content/plugins/`.
 2. Kích hoạt **NPay for LearnPress** trong **Plugins**.
 3. Vào **LearnPress → Settings → Payments → NPay**, điền:
-   - **API Token**: token Apikey nhận từ dashboard NPay.
+   - **API Token**: API key của webhook trên dashboard NPay (<https://npay.vn>).
+   - **Webhook secret** (tuỳ chọn): secret khi bật **Ký request**, dùng kiểm `X-Npay-Signature`.
    - **Số tài khoản ngân hàng** + **Mã BIN** (ví dụ `970436` cho Vietcombank).
    - **Tên chủ tài khoản** (không dấu, khuyến nghị).
    - **Mẫu QR**: `compact` / `compact2` / `qr_only` / `print`.
@@ -37,10 +38,11 @@ Trên trang quản trị NPay, thêm webhook với:
 
 ```json
 {
+  "id": "tx_8f3k2m9q",
   "gateway": "VietinBank",
   "transactionDate": "2023-04-05 14:30:00",
   "accountNumber": "113366668888",
-  "code": "NPAY123",
+  "code": null,
   "content": "chuyen tien NPAY123",
   "transferType": "in",
   "transferAmount": 2277000,
@@ -51,16 +53,17 @@ Trên trang quản trị NPay, thêm webhook với:
 
 Plugin sẽ:
 
-1. Xác thực header `Authorization: Apikey ...` (so khớp với token đã lưu).
-2. Trích `NPAY<số>` từ trường `content` để tìm `order_id`.
-3. Kiểm tra số tiền (thiếu sẽ ghi log, không tự complete).
+1. Xác thực header `Authorization: Apikey ...` (so khớp với token đã lưu) **hoặc** `X-Npay-Signature`
+   = hex HMAC-SHA256 của raw body khoá bằng webhook secret (`X-Npay-Timestamp` lệch tối đa 5 phút).
+2. Trích `NPAY<số>` từ `code` / `content` để tìm `order_id`.
+3. Kiểm tra số tiền: phải **≥** tổng đơn (thiếu sẽ ghi log, không tự complete).
 4. Gọi `$order->update_status('completed')` + `learn_press_update_user_item_meta($enrollment, 'status', 'completed')` cho từng khoá học trong đơn.
 
 ## REST endpoints
 
 | Endpoint | Method | Mô tả |
 |---|---|---|
-| `/wp-json/npay/v1/learnpress-webhook` | POST | Nhận giao dịch từ NPay (xác thực Apikey). |
+| `/wp-json/npay/v1/learnpress-webhook` | POST | Nhận giao dịch từ NPay (xác thực Apikey hoặc chữ ký). |
 | `/wp-json/npay/v1/learnpress/order-status/{order_id}` | GET | Trả về trạng thái đơn hàng cho JS polling. |
 
 ## Trang thanh toán

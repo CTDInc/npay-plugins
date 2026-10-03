@@ -68,6 +68,13 @@ class LP_Gateway_NPay extends LP_Gateway_Abstract {
 	public $api_token = '';
 
 	/**
+	 * Webhook secret (signs X-Npay-Signature).
+	 *
+	 * @var string
+	 */
+	public $webhook_secret = '';
+
+	/**
 	 * Bank account number.
 	 *
 	 * @var string
@@ -124,6 +131,7 @@ class LP_Gateway_NPay extends LP_Gateway_Abstract {
 		}
 
 		$this->api_token      = (string) $this->_get_setting( 'api_token' );
+		$this->webhook_secret = (string) $this->_get_setting( 'webhook_secret' );
 		$this->account_number = (string) $this->_get_setting( 'account_number' );
 		$this->account_name   = (string) $this->_get_setting( 'account_name' );
 		$this->bank_bin       = (string) $this->_get_setting( 'bank_bin' );
@@ -244,17 +252,29 @@ class LP_Gateway_NPay extends LP_Gateway_Abstract {
 	 * @return string
 	 */
 	public function build_qr_url( $order_id, $amount ) {
-		$args = array(
-			'acc'      => $this->account_number,
-			'bank'     => $this->bank_bin,
-			'amount'   => $amount,
-			'des'      => self::build_code( $order_id ),
-			'template' => $this->qr_template,
+		$aliases = array(
+			'vcb' => 'vietcombank', 'tcb' => 'techcombank', 'ctg' => 'vietinbank', 'icb' => 'vietinbank',
+			'mb' => 'mbbank', 'vpb' => 'vpbank', 'tpb' => 'tpbank', 'stb' => 'sacombank',
+			'hdb' => 'hdbank', 'eib' => 'eximbank', 'vba' => 'agribank', 'agr' => 'agribank',
+			'lpb' => 'lienvietpostbank', 'lpbank' => 'lienvietpostbank', 'nab' => 'namabank',
+			'abb' => 'abbank', 'bab' => 'bacabank', 'pvcb' => 'pvcombank', 'seab' => 'seabank',
+			'klb' => 'kienlongbank', 'vab' => 'vietabank', 'sgicb' => 'saigonbank', 'bvb' => 'banviet',
 		);
-		if ( ! empty( $this->account_name ) ) {
-			$args['accountName'] = rawurlencode( $this->account_name );
+		$bank = strtolower( preg_replace( '/[\s_-]+/', '', trim( $this->bank_bin ) ) );
+		if ( preg_match( '/^\d{6}$/', $bank ) ) {
+			$params = array( 'ma_bin' => $bank );
+		} else {
+			$params = array( 'ngan_hang' => isset( $aliases[ $bank ] ) ? $aliases[ $bank ] : $bank );
 		}
-		return add_query_arg( $args, 'https://qr.npay.vn/img' );
+		$params['tai_khoan'] = $this->account_number;
+		$params['so_tien']   = number_format( (float) $amount, 0, '.', '' );
+		$params['noi_dung']  = self::build_code( $order_id );
+
+		$bare = in_array( $this->qr_template, array( 'qr_only', 'qronly' ), true );
+		if ( ! $bare && '' !== $this->account_name ) {
+			$params['chu_tai_khoan'] = $this->account_name;
+		}
+		return 'https://qr.npay.vn' . ( $bare ? '/qrpay' : '/qrcard' ) . '?' . http_build_query( $params );
 	}
 
 	/**
@@ -288,7 +308,14 @@ class LP_Gateway_NPay extends LP_Gateway_Abstract {
 				'id'      => '[api_token]',
 				'default' => '',
 				'type'    => 'text',
-				'desc'    => __( 'Token dùng để xác thực webhook gửi từ NPay (Authorization: Apikey ...).', 'npay-learnpress' ),
+				'desc'    => __( 'API key của webhook trên dashboard NPay (Authorization: Apikey ...).', 'npay-learnpress' ),
+			),
+			array(
+				'title'   => __( 'Webhook secret', 'npay-learnpress' ),
+				'id'      => '[webhook_secret]',
+				'default' => '',
+				'type'    => 'text',
+				'desc'    => __( 'Tuỳ chọn. Sao chép từ dashboard NPay khi bật "Ký request" để kiểm X-Npay-Signature. Webhook hợp lệ khi đúng API key hoặc đúng chữ ký.', 'npay-learnpress' ),
 			),
 			array(
 				'title'   => __( 'Số tài khoản ngân hàng', 'npay-learnpress' ),
@@ -307,7 +334,7 @@ class LP_Gateway_NPay extends LP_Gateway_Abstract {
 				'id'      => '[bank_bin]',
 				'default' => '',
 				'type'    => 'text',
-				'desc'    => __( 'Ví dụ: 970436 cho Vietcombank, 970422 cho MBBank.', 'npay-learnpress' ),
+				'desc'    => __( 'Ví dụ: 970436 cho Vietcombank, 970422 cho MBBank (hoặc mã như vietcombank, MB).', 'npay-learnpress' ),
 			),
 			array(
 				'title'   => __( 'Mẫu QR', 'npay-learnpress' ),
@@ -315,10 +342,8 @@ class LP_Gateway_NPay extends LP_Gateway_Abstract {
 				'default' => 'compact',
 				'type'    => 'select',
 				'options' => array(
-					'compact'  => __( 'Compact', 'npay-learnpress' ),
-					'compact2' => __( 'Compact 2', 'npay-learnpress' ),
+					'compact'  => __( 'Thẻ VietQR', 'npay-learnpress' ),
 					'qr_only'  => __( 'QR only', 'npay-learnpress' ),
-					'print'    => __( 'Print', 'npay-learnpress' ),
 				),
 			),
 		);

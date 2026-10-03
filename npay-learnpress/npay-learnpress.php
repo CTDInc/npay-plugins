@@ -3,7 +3,7 @@
  * Plugin Name: NPay for LearnPress
  * Plugin URI: https://npay.vn
  * Description: Cổng thanh toán NPay cho LearnPress - tự động xác nhận thanh toán qua chuyển khoản ngân hàng bằng webhook NPay.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: NPay
  * Author URI: https://npay.vn
  * License: GPL-2.0-or-later
@@ -19,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'NPAY_LP_VERSION', '1.0.0' );
+define( 'NPAY_LP_VERSION', '1.1.0' );
 define( 'NPAY_LP_PLUGIN_FILE', __FILE__ );
 define( 'NPAY_LP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'NPAY_LP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

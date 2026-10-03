@@ -4,7 +4,7 @@ Tags: learnpress, payment-gateway, bank-transfer, vietnam, qr-code, sepay, npay
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -30,18 +30,26 @@ NPay for LearnPress là cổng thanh toán giúp tích hợp dịch vụ **NPay*
 
 = Cần dùng những API gì của NPay? =
 
-Plugin chỉ nhận webhook từ NPay, không gọi ngược lại. Bạn chỉ cần token Apikey để xác thực webhook.
+Plugin chỉ nhận webhook từ NPay, không gọi ngược lại. Bạn cần API key (`Authorization: Apikey`) hoặc webhook secret (`X-Npay-Signature`) để xác thực webhook.
 
 = Nội dung chuyển khoản có bắt buộc đúng định dạng? =
 
-Plugin tìm chuỗi `NPAY<số>` trong trường `content` của webhook, không phân biệt hoa thường, cho phép có dấu cách / `-` / `_` giữa `NPAY` và phần số.
+Plugin tìm chuỗi `NPAY<số>` trong trường `code` / `content` của webhook, không phân biệt hoa thường, cho phép có dấu cách / `-` / `_` giữa `NPAY` và phần số.
 
 == Changelog ==
+
+= 1.1.0 =
+* QR chuyển sang https://qr.npay.vn/qrcard (/img không còn).
+* Thêm webhook secret để xác thực X-Npay-Signature.
+* Webhook đòi số tiền chuyển ≥ tổng đơn (trước đây số tiền 0 vẫn hoàn tất đơn); lưu id giao dịch NPay.
 
 = 1.0.0 =
 * Bản phát hành đầu tiên.
 
 == Upgrade Notice ==
+
+= 1.1.0 =
+Sửa ảnh QR (endpoint /img cũ đã ngừng) và thắt chặt kiểm tra số tiền webhook.
 
 = 1.0.0 =
 Bản phát hành đầu tiên.

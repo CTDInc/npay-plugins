@@ -54,7 +54,8 @@ class NPay_Webhook_Receiver {
 	}
 
 	/**
-	 * Authorize incoming webhook via Apikey header.
+	 * Authorize incoming webhook via `Authorization: Apikey` or, when a webhook
+	 * secret is set, `X-Npay-Signature` (hex HMAC-SHA256 of the raw body).
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return bool|WP_Error
@@ -62,6 +63,11 @@ class NPay_Webhook_Receiver {
 	public function check_authorization( $request ) {
 		$gateway = new LP_Gateway_NPay();
 		$token   = trim( (string) $gateway->api_token );
+		$secret  = trim( (string) $gateway->webhook_secret );
+
+		if ( '' !== $secret && $this->verify_signature( $request, $secret ) ) {
+			return true;
+		}
 
 		if ( empty( $token ) ) {
 			return new WP_Error(
@@ -100,6 +106,22 @@ class NPay_Webhook_Receiver {
 	}
 
 	/**
+	 * Verify X-Npay-Signature; X-Npay-Timestamp, when present, must be within 5 minutes.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @param string          $secret  Webhook secret.
+	 * @return bool
+	 */
+	protected function verify_signature( $request, $secret ) {
+		$sig = strtolower( trim( (string) $request->get_header( 'x_npay_signature' ) ) );
+		if ( '' === $sig || ! hash_equals( hash_hmac( 'sha256', (string) $request->get_body(), $secret ), $sig ) ) {
+			return false;
+		}
+		$ts = trim( (string) $request->get_header( 'x_npay_timestamp' ) );
+		return '' === $ts || ( ctype_digit( $ts ) && abs( time() - (int) $ts ) <= 300 );
+	}
+
+	/**
 	 * Handle webhook payload.
 	 *
 	 * @param WP_REST_Request $request Request.
@@ -111,7 +133,8 @@ class NPay_Webhook_Receiver {
 			$payload = $request->get_params();
 		}
 
-		$content         = isset( $payload['content'] ) ? (string) $payload['content'] : '';
+		$content         = trim( ( isset( $payload['code'] ) ? (string) $payload['code'] : '' ) . ' ' . ( isset( $payload['content'] ) ? (string) $payload['content'] : '' ) );
+		$transaction_id  = isset( $payload['id'] ) ? (string) $payload['id'] : '';
 		$transfer_type   = isset( $payload['transferType'] ) ? (string) $payload['transferType'] : '';
 		$transfer_amount = isset( $payload['transferAmount'] ) ? (float) $payload['transferAmount'] : 0;
 		$reference_code  = isset( $payload['referenceCode'] ) ? (string) $payload['referenceCode'] : '';
@@ -165,7 +188,7 @@ class NPay_Webhook_Receiver {
 
 		// Optional: amount validation.
 		$expected = $this->get_order_total( $order );
-		if ( $expected > 0 && $transfer_amount > 0 && $transfer_amount + 0.01 < $expected ) {
+		if ( $transfer_amount + 0.01 < $expected ) {
 			// Underpaid: log meta but do not auto-complete.
 			$this->add_order_note( $order, sprintf( /* translators: 1 paid 2 expected */ __( 'NPay: nhận được %1$s nhưng cần %2$s - chờ kiểm tra thủ công.', 'npay-learnpress' ), $transfer_amount, $expected ) );
 			return new WP_REST_Response(
@@ -179,6 +202,7 @@ class NPay_Webhook_Receiver {
 
 		// Save transaction meta.
 		if ( function_exists( 'learn_press_update_order_item_meta' ) || function_exists( 'update_post_meta' ) ) {
+			update_post_meta( $order_id, '_npay_transaction_id', sanitize_text_field( $transaction_id ) );
 			update_post_meta( $order_id, '_npay_reference_code', sanitize_text_field( $reference_code ) );
 			update_post_meta( $order_id, '_npay_gateway', sanitize_text_field( $gateway_name ) );
 			update_post_meta( $order_id, '_npay_transfer_amount', floatval( $transfer_amount ) );
@@ -199,7 +223,7 @@ class NPay_Webhook_Receiver {
 				/* translators: 1: amount, 2: reference */
 				__( 'NPay: đã ghi nhận thanh toán %1$s (ref: %2$s).', 'npay-learnpress' ),
 				$transfer_amount,
-				$reference_code
+				'' !== $transaction_id ? $transaction_id : $reference_code
 			)
 		);
 
