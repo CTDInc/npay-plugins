@@ -45,14 +45,15 @@ Chi tiết xem [INSTALL.md](./INSTALL.md).
 
 ## 🔌 Webhook payload
 
-NPay POST JSON tới callback URL với header `Authorization: Apikey <token>`:
+NPay POST JSON tới callback URL với header `Authorization: Apikey <token>` (và `X-Npay-Signature` nếu bật ký request):
 
 ```json
 {
+  "id": "tx_8f3k2m9q",
   "gateway": "VietinBank",
   "transactionDate": "2023-04-05 14:30:00",
   "accountNumber": "113366668888",
-  "code": "NPAY-INV123",
+  "code": null,
   "content": "thanh toan don hang NPAY-INV123",
   "transferType": "in",
   "transferAmount": 2277000,
@@ -62,11 +63,22 @@ NPay POST JSON tới callback URL với header `Authorization: Apikey <token>`:
 ```
 
 Module sẽ:
-1. Kiểm tra header `Authorization: Apikey ...` so với `api_token` đã cấu hình (`hash_equals`).
+1. Chấp nhận nếu `Authorization: Apikey ...` khớp `api_token` **hoặc** `X-Npay-Signature` khớp HMAC-SHA256
+   (hex, raw body) khoá bằng `webhook_secret`; `X-Npay-Timestamp` (nếu có) lệch tối đa 5 phút. Sai → `401`.
 2. Bỏ qua nếu `transferType != "in"`.
-3. Trích ID hóa đơn từ `code` (ví dụ `NPAY-INV123` → invoice `123`).
-4. Gọi `$this->addInvoicePayment($invoiceId, $referenceCode, $amount, 0, 'npay')`.
-5. Trả JSON kết quả + HTTP status (`200` / `401` / `422` / `500`).
+3. Trích ID hóa đơn từ `code`/`content` (ví dụ `NPAY-INV123` → invoice `123`). Không khớp → `200` kèm
+   `"Ignored: …"` để NPay không gửi lại.
+4. Gọi `$this->addInvoicePayment($invoiceId, $id, $amount, 0, 'npay')` — `$id` là `id` giao dịch NPay (`tx_…`).
+5. Trả JSON kết quả + HTTP status (`200` / `401` / `500`).
+
+## Thay đổi
+
+### 1.1.0
+
+- QR chuyển sang `https://qr.npay.vn/qrcard` (`/qrpay` khi chọn "QR Only"); `/img` không còn.
+- Thêm `webhook_secret` để xác thực `X-Npay-Signature`.
+- Transaction id ghi vào HostBill là `id` NPay (trước là `referenceCode`, thường `null`).
+- Hoá đơn không khớp trả 200; bỏ đoán hoá đơn theo dãy số dài nhất trong nội dung.
 
 ## 🏦 Mã BIN một số ngân hàng phổ biến
 

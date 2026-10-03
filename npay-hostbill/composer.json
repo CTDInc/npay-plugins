@@ -2,7 +2,7 @@
     "name": "npay/hostbill",
     "description": "NPay payment gateway module for HostBill (Vietnamese bank transfer with VietQR + webhook IPN).",
     "type": "hostbill-module",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "keywords": ["npay", "hostbill", "payment", "gateway", "vietqr", "vietnam", "bank-transfer"],
     "homepage": "https://npay.vn",
     "license": "MIT",

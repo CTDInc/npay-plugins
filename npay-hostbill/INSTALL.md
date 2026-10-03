@@ -56,9 +56,10 @@ chmod -R 755 /var/www/hostbill/includes/modules/gateways/npay
 
 | Trường | Mô tả | Ví dụ |
 |---|---|---|
-| **API Token (Apikey)** | Token xác thực webhook do NPay cấp | `npay_live_xxxxxxxx` |
+| **API Token (Apikey)** | API key của webhook trên dashboard NPay | `npay_live_xxxxxxxx` |
+| **Webhook secret** | (Tuỳ chọn) secret ký `X-Npay-Signature`, sao chép từ dashboard | |
 | **Số tài khoản ngân hàng** | Số TK nhận tiền | `113366668888` |
-| **Mã BIN ngân hàng** | Mã NAPAS | `970415` |
+| **Mã BIN ngân hàng** | Mã NAPAS (hoặc mã `vietinbank`, `mbbank`…) | `970415` |
 | **Tên viết tắt ngân hàng** | Hiển thị cho khách | `VietinBank` |
 | **Mẫu QR** | `compact` / `qronly` / `print` | `compact` |
 | **Tiền tố mã giao dịch** | Prefix cho mã đối soát | `NPAY-` |
@@ -67,17 +68,19 @@ Bấm **Save Changes**.
 
 ## 5. Cấu hình Webhook trên dashboard NPay
 
-Đăng nhập <https://my.npay.vn> → **Webhook / Cấu hình đối soát**, thêm endpoint:
+Đăng nhập <https://npay.vn> → **Webhook**, thêm endpoint:
 
 ```
 https://your-hostbill.com/includes/modules/gateways/callback/npay.php
 ```
 
-Phương thức: `POST`, Content-Type: `application/json`, Header xác thực:
+Phương thức: `POST`, Content-Type: `application/json`, kiểu xác thực **API Key**:
 
 ```
 Authorization: Apikey <API_TOKEN của bạn>
 ```
+
+Bật thêm **Ký request** rồi chép webhook secret vào ô *Webhook secret* nếu muốn kiểm `X-Npay-Signature`.
 
 ## 6. Kiểm thử
 
@@ -89,14 +92,14 @@ Authorization: Apikey <API_TOKEN của bạn>
 ## 7. Gỡ lỗi
 
 - Log của HostBill: **System → Logs → Modules**.
-- Webhook NPay trả về JSON `{"success":true,...}` nếu xử lý thành công, mã HTTP `401` nếu token sai, `422` nếu không khớp hóa đơn.
+- Webhook NPay trả về JSON `{"success":true,...}` nếu xử lý thành công, mã HTTP `401` nếu token/chữ ký sai; giao dịch không khớp hóa đơn trả `200` kèm `"Ignored: …"`.
 - Test webhook nhanh bằng `curl`:
 
 ```bash
 curl -X POST https://your-hostbill.com/includes/modules/gateways/callback/npay.php \
      -H "Authorization: Apikey $TOKEN" \
      -H "Content-Type: application/json" \
-     -d '{"gateway":"VietinBank","transactionDate":"2025-05-13 17:00:00","accountNumber":"113366668888","code":"NPAY-INV123","content":"thanh toan NPAY-INV123","transferType":"in","transferAmount":250000,"accumulated":1000000,"referenceCode":"TEST.123"}'
+     -d '{"id":"tx_test123","gateway":"VietinBank","transactionDate":"2025-05-13 17:00:00","accountNumber":"113366668888","code":null,"content":"thanh toan NPAY-INV123","transferType":"in","transferAmount":250000,"accumulated":1000000,"referenceCode":null}'
 ```
 
 ## 8. Gỡ cài đặt

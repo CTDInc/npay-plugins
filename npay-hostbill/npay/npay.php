@@ -8,7 +8,7 @@
  * sẽ tự động cộng thanh toán vào hóa đơn tương ứng.
  *
  * @author  NPay Team
- * @version 1.0.0
+ * @version 1.1.0
  * @link    https://npay.vn
  */
 
@@ -33,7 +33,13 @@ class npay extends HostBillPaymentGateway
                 'value' => '',
                 'type'  => 'input',
                 'label' => 'API Token (Apikey)',
-                'description' => 'Token xác thực webhook do NPay cấp. Header: Authorization: Apikey &lt;token&gt;',
+                'description' => 'API key của webhook trên dashboard NPay (https://npay.vn). Header: Authorization: Apikey &lt;token&gt;',
+            ],
+            'webhook_secret' => [
+                'value' => '',
+                'type'  => 'input',
+                'label' => 'Webhook secret (tuỳ chọn)',
+                'description' => 'Sao chép từ dashboard NPay khi bật "Ký request". Có giá trị thì kiểm thêm X-Npay-Signature (HMAC-SHA256 hex của raw body).',
             ],
             'account_number' => [
                 'value' => '',
@@ -45,7 +51,7 @@ class npay extends HostBillPaymentGateway
                 'value' => '970415',
                 'type'  => 'input',
                 'label' => 'Mã BIN ngân hàng',
-                'description' => 'Mã BIN ngân hàng theo chuẩn NAPAS (VD: 970415 = VietinBank, 970422 = MBBank).',
+                'description' => 'Mã BIN ngân hàng theo chuẩn NAPAS (VD: 970415 = VietinBank, 970422 = MBBank), hoặc mã như vietinbank, mbbank.',
             ],
             'bank_short_name' => [
                 'value' => 'VietinBank',
@@ -140,16 +146,20 @@ class npay extends HostBillPaymentGateway
     }
 
     /**
-     * Build the QR image URL from qr.npay.vn.
+     * Build the QR image URL from qr.npay.vn (`/qrcard`, or `/qrpay` for "QR Only").
      */
     protected function buildQrUrl($amount, $code)
     {
-        $acc      = urlencode($this->config['config']['account_number']['value']);
-        $bin      = urlencode($this->config['config']['bank_bin']['value']);
-        $template = urlencode($this->config['config']['qr_template']['value'] ?: 'compact');
-        $amount   = (int) $amount;
-        $code     = urlencode($code);
-        return "https://qr.npay.vn/img?acc={$acc}&bank={$bin}&amount={$amount}&des={$code}&template={$template}";
+        $template = $this->config['config']['qr_template']['value'] ?: 'compact';
+        $route    = $template === 'qronly' ? '/qrpay' : '/qrcard';
+        $bank     = strtolower(preg_replace('/\s+/', '', (string) $this->config['config']['bank_bin']['value']));
+        $params   = preg_match('/^\d{6}$/', $bank) ? ['ma_bin' => $bank] : ['ngan_hang' => $bank];
+        $params  += [
+            'tai_khoan' => $this->config['config']['account_number']['value'],
+            'so_tien'   => (string) (int) round((float) $amount),
+            'noi_dung'  => $code,
+        ];
+        return 'https://qr.npay.vn' . $route . '?' . http_build_query($params);
     }
 
     /**
@@ -227,13 +237,15 @@ class npay extends HostBillPaymentGateway
      * NPay POST JSON về URL:
      *   /includes/modules/gateways/callback/npay.php
      *
-     * Header: Authorization: Apikey <token>
+     * Header: Authorization: Apikey <token>, và/hoặc X-Npay-Signature (hex HMAC-SHA256
+     *         của raw body, khoá = webhook secret) + X-Npay-Timestamp.
      * Body:
      * {
+     *   "id":"tx_8f3k2m9q",
      *   "gateway":"VietinBank",
      *   "transactionDate":"2023-04-05 14:30:00",
      *   "accountNumber":"113366668888",
-     *   "code":"NPAY-INV123",
+     *   "code":null,
      *   "content":"thanh toan don hang NPAY-INV123",
      *   "transferType":"in",
      *   "transferAmount":2277000,
@@ -254,7 +266,15 @@ class npay extends HostBillPaymentGateway
             $providedToken = trim($m[1]);
         }
 
-        if ($expected === '' || $providedToken === '' || !hash_equals($expected, $providedToken)) {
+        $raw = file_get_contents('php://input');
+
+        $secret = isset($this->config['config']['webhook_secret']['value'])
+            ? trim($this->config['config']['webhook_secret']['value'])
+            : '';
+        $apikeyOk = $expected !== '' && $providedToken !== '' && hash_equals($expected, $providedToken);
+        $signatureOk = $secret !== '' && $this->verifySignature((string) $raw, $secret);
+
+        if (!$apikeyOk && !$signatureOk) {
             http_response_code(401);
             header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'Unauthorized']);
@@ -262,7 +282,6 @@ class npay extends HostBillPaymentGateway
         }
 
         // 2) Đọc payload JSON
-        $raw = file_get_contents('php://input');
         $payload = json_decode($raw, true);
         if (!is_array($payload)) {
             http_response_code(400);
@@ -285,6 +304,7 @@ class npay extends HostBillPaymentGateway
         $content = isset($payload['content']) ? (string) $payload['content'] : '';
         $amount  = isset($payload['transferAmount']) ? (float) $payload['transferAmount'] : 0.0;
         $refCode = isset($payload['referenceCode']) ? (string) $payload['referenceCode'] : '';
+        $txnId   = isset($payload['id']) && $payload['id'] !== '' ? (string) $payload['id'] : $refCode;
 
         $invoiceId = $this->extractInvoiceId($code);
         if (!$invoiceId && $content) {
@@ -292,12 +312,12 @@ class npay extends HostBillPaymentGateway
         }
 
         if (!$invoiceId) {
-            http_response_code(422);
+            // 200 so NPay doesn't keep retrying a transfer that isn't for an invoice.
+            http_response_code(200);
             header('Content-Type: application/json');
             echo json_encode([
-                'success' => false,
-                'message' => 'Cannot match invoice from code/content',
-                'code'    => $code,
+                'success' => true,
+                'message' => 'Ignored: no invoice matched from code/content',
             ]);
             return;
         }
@@ -306,7 +326,7 @@ class npay extends HostBillPaymentGateway
         try {
             $this->addInvoicePayment(
                 $invoiceId,           // invoice id
-                $refCode,             // transaction id (NPay reference)
+                $txnId,               // transaction id (NPay id tx_…, unique per transfer)
                 $amount,              // amount
                 0,                    // fees
                 'npay'                // gateway module name
@@ -325,8 +345,22 @@ class npay extends HostBillPaymentGateway
             'message'    => 'Payment recorded',
             'invoice_id' => $invoiceId,
             'amount'     => $amount,
-            'reference'  => $refCode,
+            'reference'  => $txnId,
         ]);
+    }
+
+    /**
+     * X-Npay-Signature = hex HMAC-SHA256(raw body, webhook secret); X-Npay-Timestamp,
+     * when sent, must be within 5 minutes.
+     */
+    protected function verifySignature($raw, $secret)
+    {
+        $sig = isset($_SERVER['HTTP_X_NPAY_SIGNATURE']) ? strtolower(trim($_SERVER['HTTP_X_NPAY_SIGNATURE'])) : '';
+        if ($sig === '' || !hash_equals(hash_hmac('sha256', $raw, $secret), $sig)) {
+            return false;
+        }
+        $ts = isset($_SERVER['HTTP_X_NPAY_TIMESTAMP']) ? trim($_SERVER['HTTP_X_NPAY_TIMESTAMP']) : '';
+        return $ts === '' || (ctype_digit($ts) && abs(time() - (int) $ts) <= 300);
     }
 
     /**
@@ -351,7 +385,8 @@ class npay extends HostBillPaymentGateway
 
     /**
      * Extract numeric invoice id from a transfer code/content.
-     * Looks for "<prefix>INV<digits>" first, falls back to last digit cluster.
+     * Looks for "<prefix>INV<digits>", then "INV<digits>". No bare-digit guessing:
+     * a phone or account number in the memo must not credit a random invoice.
      */
     protected function extractInvoiceId($text)
     {
@@ -367,14 +402,6 @@ class npay extends HostBillPaymentGateway
         }
         if (preg_match('/INV(\d+)/i', $text, $m)) {
             return (int) $m[1];
-        }
-        // Last resort: pick the longest digit cluster
-        if (preg_match_all('/\d+/', $text, $matches)) {
-            $longest = '';
-            foreach ($matches[0] as $d) {
-                if (strlen($d) > strlen($longest)) $longest = $d;
-            }
-            if ($longest !== '') return (int) $longest;
         }
         return 0;
     }
