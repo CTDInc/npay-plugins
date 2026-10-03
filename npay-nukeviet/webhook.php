@@ -6,8 +6,8 @@
  * Standalone endpoint reachable at:
  *   /modules/shops/payment_gateway/npay/webhook.php
  *
- * Bootstraps NukeViet, validates the Authorization header against the
- * configured API token, looks up the shop order by `pay_id` embedded in
+ * Bootstraps NukeViet, validates `Authorization: Apikey <token>` or the
+ * `X-Npay-Signature` HMAC (webhook secret), looks up the shop order by `pay_id` embedded in
  * the bank message content/code, and marks the order as paid.
  *
  * Also exposes a small `?action=status&pay_id=...` polling endpoint used
@@ -78,6 +78,7 @@ function npay_load_config()
     $defaults = array(
         'npay_api_base'       => 'https://api.npay.vn',
         'npay_api_token'      => '',
+        'npay_webhook_secret' => '',
         'npay_bank_code'      => '',
         'npay_account_number' => '',
         'npay_account_name'   => '',
@@ -116,6 +117,43 @@ function npay_extract_pay_id($haystack, $prefix)
         return strtoupper($m[1]);
     }
     return null;
+}
+
+/**
+ * X-Npay-Signature = hex HMAC-SHA256(raw body, webhook secret). X-Npay-Timestamp,
+ * when present, must be within 5 minutes.
+ *
+ * @param string $raw
+ * @param string $secret
+ * @return bool
+ */
+function npay_verify_signature($raw, $secret)
+{
+    $sig = isset($_SERVER['HTTP_X_NPAY_SIGNATURE']) ? strtolower(trim($_SERVER['HTTP_X_NPAY_SIGNATURE'])) : '';
+    if ($secret === '' || $sig === '' || !hash_equals(hash_hmac('sha256', $raw, $secret), $sig)) {
+        return false;
+    }
+    $ts = isset($_SERVER['HTTP_X_NPAY_TIMESTAMP']) ? trim($_SERVER['HTTP_X_NPAY_TIMESTAMP']) : '';
+    return $ts === '' || (ctype_digit($ts) && abs(time() - (int) $ts) <= 300);
+}
+
+/**
+ * Find an order row by its NPay pay_id transfer code.
+ * Also tries without one leading prefix, for orders whose pay_id was set by
+ * the shops module (transfer content = prefix + pay_id).
+ *
+ * @param string $pay_id
+ * @param string $prefix
+ * @return array|null
+ */
+function npay_find_order($pay_id, $prefix)
+{
+    $order = npay_find_order_by_pay_id($pay_id);
+    $prefix = strtoupper((string) $prefix);
+    if (!$order && $prefix !== '' && strpos($pay_id, $prefix) === 0) {
+        $order = npay_find_order_by_pay_id(substr($pay_id, strlen($prefix)));
+    }
+    return $order;
 }
 
 /**
@@ -173,15 +211,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $cfg = npay_load_config();
 
-// 1. Validate Authorization: Apikey <token>
+// 1. Validate Authorization: Apikey <token>, or X-Npay-Signature.
+$raw = (string) file_get_contents('php://input');
 $auth = npay_get_auth_header();
-$expected = 'Apikey ' . (string) $cfg['npay_api_token'];
-if (empty($cfg['npay_api_token']) || !hash_equals($expected, $auth)) {
+$token = (string) $cfg['npay_api_token'];
+$apikey_ok = $token !== '' && preg_match('/^Apikey\s+(.+)$/i', $auth, $m) && hash_equals($token, trim($m[1]));
+if (!$apikey_ok && !npay_verify_signature($raw, (string) $cfg['npay_webhook_secret'])) {
     npay_json_response(401, array('success' => false, 'error' => 'unauthorized'));
 }
 
 // 2. Parse JSON body.
-$raw = file_get_contents('php://input');
 $payload = json_decode($raw, true);
 if (!is_array($payload)) {
     npay_json_response(400, array('success' => false, 'error' => 'invalid_json'));
@@ -197,6 +236,7 @@ $amount  = isset($payload['transferAmount']) ? (float) $payload['transferAmount'
 $content = isset($payload['content']) ? (string) $payload['content'] : '';
 $code    = isset($payload['code']) ? (string) $payload['code'] : '';
 $ref     = isset($payload['referenceCode']) ? (string) $payload['referenceCode'] : '';
+$tx_id   = isset($payload['id']) && $payload['id'] !== '' ? (string) $payload['id'] : $ref;
 $gateway = isset($payload['gateway']) ? (string) $payload['gateway'] : '';
 $tx_date = isset($payload['transactionDate']) ? (string) $payload['transactionDate'] : '';
 
@@ -207,14 +247,15 @@ $pay_id  = npay_extract_pay_id($code, $prefix);
 if (!$pay_id) {
     $pay_id = npay_extract_pay_id($content, $prefix);
 }
+// Unmatched transfers answer 200 so NPay doesn't retry them forever.
 if (!$pay_id) {
-    npay_json_response(422, array('success' => false, 'error' => 'pay_id_not_found'));
+    npay_json_response(200, array('success' => true, 'ignored' => 'pay_id_not_found'));
 }
 
 // 5. Match against the orders table.
-$order = npay_find_order_by_pay_id($pay_id);
+$order = npay_find_order($pay_id, $prefix);
 if (!$order) {
-    npay_json_response(404, array('success' => false, 'error' => 'order_not_found', 'pay_id' => $pay_id));
+    npay_json_response(200, array('success' => true, 'ignored' => 'order_not_found', 'pay_id' => $pay_id));
 }
 
 if ($order['status'] === 'paid') {
@@ -242,7 +283,7 @@ try {
     $sql = "UPDATE " . NV_PREFIXLANG . "_shops_orders "
          . "SET status='paid', payment_time=" . (int) $now . ", "
          . "payment_gateway=" . $db->quote('npay') . ", "
-         . "payment_reference=" . $db->quote($ref) . " "
+         . "payment_reference=" . $db->quote($tx_id) . " "
          . "WHERE order_id=" . (int) $order['order_id'];
     $db->query($sql);
 } catch (Exception $e) {
@@ -264,7 +305,7 @@ try {
         . $db->quote($pay_id) . ", "
         . (int) $order['order_id'] . ", "
         . (float) $amount . ", "
-        . $db->quote($ref) . ", "
+        . $db->quote($tx_id) . ", "
         . $db->quote($gateway) . ", "
         . $db->quote($tx_date) . ", "
         . $db->quote($raw) . ", "

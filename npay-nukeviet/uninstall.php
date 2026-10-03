@@ -22,6 +22,7 @@ global $db;
 $keys = array(
     'npay_api_base',
     'npay_api_token',
+    'npay_webhook_secret',
     'npay_bank_code',
     'npay_account_number',
     'npay_account_name',

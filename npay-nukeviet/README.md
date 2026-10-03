@@ -5,7 +5,7 @@ Tích hợp **NPay** (https://npay.vn) — nền tảng tự động hoá thanh 
 Module hỗ trợ:
 
 - Hiển thị mã **VietQR** + thông tin tài khoản ngay trên trang checkout.
-- Tự động đối soát giao dịch qua webhook NPay (Authorization: `Apikey <token>`).
+- Tự động đối soát giao dịch qua webhook NPay (`Authorization: Apikey <token>` hoặc chữ ký `X-Npay-Signature`).
 - Tự động cập nhật trạng thái đơn hàng sang `paid` khi nhận được tiền.
 - JavaScript poll trạng thái thanh toán, chuyển hướng tự động khi thành công.
 - Ghi log mọi giao dịch nhận được vào bảng `nv_<lang>_shops_payment_log`.
@@ -16,7 +16,7 @@ Module hỗ trợ:
 
 - NukeViet 4.4+ (kèm module **Shops**).
 - PHP 7.2+ (khuyến nghị PHP 8.x).
-- Một tài khoản NPay với API token đã được tạo ở https://my.npay.vn.
+- Một tài khoản NPay (<https://npay.vn>) đã tạo webhook kiểu xác thực **API Key**.
 
 ## 2. Cài đặt
 
@@ -77,8 +77,9 @@ Trong admin NukeViet → **Shops** → **Phương thức thanh toán** → **NPa
 | Trường | Mô tả |
 |---|---|
 | `npay_api_base` | Endpoint NPay, mặc định `https://api.npay.vn`. |
-| `npay_api_token` | API token (Apikey) lấy trong dashboard NPay. |
-| `npay_bank_code` | Mã ngân hàng VietQR (VCB, VTB, TCB, MB, ...). |
+| `npay_api_token` | API key của webhook trên dashboard NPay. |
+| `npay_webhook_secret` | (Tuỳ chọn) webhook secret khi bật **Ký request** — kiểm `X-Npay-Signature`. |
+| `npay_bank_code` | Ngân hàng: mã ngắn (VCB, VTB, TCB, MB…), mã `vietcombank`… hoặc BIN 6 số. |
 | `npay_account_number` | Số tài khoản nhận tiền. |
 | `npay_account_name` | Tên chủ tài khoản (in hoa, không dấu). |
 | `npay_prefix` | Tiền tố mã chuyển khoản, mặc định `NPAY`. |
@@ -86,7 +87,7 @@ Trong admin NukeViet → **Shops** → **Phương thức thanh toán** → **NPa
 
 ### 2.4. Cấu hình webhook tại NPay
 
-Vào dashboard NPay → **Webhooks** → tạo mới:
+Vào dashboard NPay (<https://npay.vn>) → **Webhook** → tạo mới:
 
 ```
 URL:     https://your-site.com/modules/shops/payment_gateway/npay/webhook.php
@@ -98,10 +99,11 @@ NPay sẽ POST JSON theo định dạng:
 
 ```json
 {
+  "id": "tx_8f3k2m9q",
   "gateway": "VietinBank",
   "transactionDate": "2023-04-05 14:30:00",
   "accountNumber": "113366668888",
-  "code": "NPAY12",
+  "code": null,
   "content": "Khach hang chuyen khoan NPAY12",
   "transferType": "in",
   "transferAmount": 2277000,
@@ -112,10 +114,12 @@ NPay sẽ POST JSON theo định dạng:
 
 Webhook sẽ:
 
-1. Xác thực `Authorization: Apikey <token>` (so sánh bằng `hash_equals`).
+1. Xác thực `Authorization: Apikey <token>` **hoặc** `X-Npay-Signature` = hex HMAC-SHA256 của raw body
+   khoá bằng `npay_webhook_secret` (có `X-Npay-Timestamp` thì lệch tối đa 5 phút). Sai → `401`.
 2. Bỏ qua giao dịch `transferType != "in"`.
 3. Tìm mã `NPAY<order_id>` trong `code` rồi đến `content`.
-4. Tra đơn hàng theo cột `pay_id` trong `nv_<lang>_shops_orders`.
+4. Tra đơn hàng theo cột `pay_id` trong `nv_<lang>_shops_orders`. Không tìm thấy mã/đơn → `200`
+   kèm `"ignored"` để NPay không gửi lại.
 5. Nếu đủ tiền → `UPDATE ... SET status='paid'`.
 6. Ghi log vào `nv_<lang>_shops_payment_log` (nếu bảng tồn tại).
 
@@ -123,7 +127,7 @@ Webhook sẽ:
 
 Khi khách chọn **NPay** ở bước thanh toán, module gọi `npay_payment_render($order)` để render template `templates/payment_instruction.tpl` gồm:
 
-- Ảnh QR từ `https://qr.npay.vn/img?acc=...&bank=...&amount=...&des=...&template=compact`.
+- Ảnh QR từ `https://qr.npay.vn/qrcard?ngan_hang=...&tai_khoan=...&so_tien=...&noi_dung=...` (`/qrpay` khi mẫu `qr_only`).
 - Thông tin tài khoản (có nút copy).
 - Khối trạng thái + JS poll `webhook.php?action=status&pay_id=...` mỗi 5 giây.
 - Tự reload trang khi đơn hàng được đánh dấu `paid`.
@@ -143,7 +147,16 @@ hoặc xoá phương thức trong admin. Uninstaller chỉ xoá các dòng cấu
 - Webhook chỉ chấp nhận POST + so sánh token bằng `hash_equals` (chống timing attack).
 - Endpoint `?action=status` chỉ trả mã `pay_id`, `order_id`, `status` — không lộ thông tin nhạy cảm.
 
-## 6. Hỗ trợ
+## 6. Thay đổi
+
+### 1.1.0
+
+- QR chuyển sang `https://qr.npay.vn/qrcard` (`/img` không còn).
+- Thêm `npay_webhook_secret` để kiểm `X-Npay-Signature`; chạy lại `install.php` để thêm dòng cấu hình.
+- Nội dung chuyển khoản không còn bị lặp tiền tố (`NPAYNPAY…`), đơn khớp được trở lại.
+- Không khớp mã/đơn trả `200`; `payment_reference` ghi `id` NPay (`tx_…`).
+
+## 7. Hỗ trợ
 
 - Tài liệu: https://docs.npay.vn
 - Email: support@npay.vn

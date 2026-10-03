@@ -7,7 +7,7 @@
  * @author     NPay <support@npay.vn>
  * @copyright  Copyright (C) 2024 NPay. All rights reserved.
  * @license    GNU/GPL v2 or later
- * @version    1.0.0
+ * @version    1.1.0
  *
  * File: modules/shops/payment_gateway/npay.php
  */
@@ -26,12 +26,13 @@ $payment_npay = array(
     'name'        => 'NPay',
     'description' => 'Thanh toán tự động qua chuyển khoản ngân hàng (NPay)',
     'logo'        => NV_BASE_SITEURL . 'modules/shops/payment_gateway/npay_logo.png',
-    'version'     => '1.0.0',
+    'version'     => '1.1.0',
     'author'      => 'NPay <support@npay.vn>',
     'website'     => 'https://npay.vn',
     'config_keys' => array(
         'npay_api_base'       => 'https://api.npay.vn',
         'npay_api_token'      => '',
+        'npay_webhook_secret' => '',
         'npay_bank_code'      => '',
         'npay_account_number' => '',
         'npay_account_name'   => '',
@@ -79,15 +80,10 @@ if (!function_exists('npay_payment_render')) {
             $pay_id = npay_generate_pay_id($cfg['npay_prefix'], $order_id);
         }
 
-        $des = $cfg['npay_prefix'] . $pay_id;
+        // npay_generate_pay_id() already carries the prefix; don't double it.
+        $des = stripos($pay_id, (string) $cfg['npay_prefix']) === 0 ? $pay_id : $cfg['npay_prefix'] . $pay_id;
 
-        // VietQR (npay) image URL.
-        $qr_url = 'https://qr.npay.vn/img?'
-            . 'acc=' . rawurlencode($cfg['npay_account_number'])
-            . '&bank=' . rawurlencode($cfg['npay_bank_code'])
-            . '&amount=' . rawurlencode((string) $amount)
-            . '&des=' . rawurlencode($des)
-            . '&template=' . rawurlencode($cfg['npay_qr_template']);
+        $qr_url = npay_build_qr_url($cfg, $amount, $des);
 
         // Polling endpoint the JS will use to detect successful payment.
         $poll_url = NV_BASE_SITEURL . 'modules/shops/payment_gateway/npay/webhook.php?action=status&pay_id=' . rawurlencode($pay_id);
@@ -138,6 +134,7 @@ if (!function_exists('npay_get_config')) {
         $defaults = array(
             'npay_api_base'       => 'https://api.npay.vn',
             'npay_api_token'      => '',
+            'npay_webhook_secret' => '',
             'npay_bank_code'      => '',
             'npay_account_number' => '',
             'npay_account_name'   => '',
@@ -158,6 +155,46 @@ if (!function_exists('npay_get_config')) {
 
         $cache = $defaults;
         return $cache;
+    }
+}
+
+if (!function_exists('npay_build_qr_url')) {
+
+    /**
+     * NPay gen-qr image URL: /qrcard (VietQR card) or /qrpay (bare QR for `qr_only`).
+     * Bank = Napas BIN (`ma_bin`) or a vietnam-qr-pay key (`ngan_hang`, short codes mapped).
+     *
+     * @param array  $cfg
+     * @param float  $amount
+     * @param string $des
+     * @return string
+     */
+    function npay_build_qr_url($cfg, $amount, $des)
+    {
+        $aliases = array(
+            'vcb' => 'vietcombank', 'tcb' => 'techcombank', 'ctg' => 'vietinbank', 'icb' => 'vietinbank',
+            'vtb' => 'vietinbank', 'mb' => 'mbbank', 'vpb' => 'vpbank', 'tpb' => 'tpbank',
+            'stb' => 'sacombank', 'hdb' => 'hdbank', 'eib' => 'eximbank', 'vba' => 'agribank',
+            'agr' => 'agribank', 'lpb' => 'lienvietpostbank', 'lpbank' => 'lienvietpostbank',
+            'nab' => 'namabank', 'abb' => 'abbank', 'bab' => 'bacabank', 'pvcb' => 'pvcombank',
+            'seab' => 'seabank', 'klb' => 'kienlongbank', 'vab' => 'vietabank', 'sgicb' => 'saigonbank',
+            'bvb' => 'banviet',
+        );
+        $bank = strtolower(preg_replace('/[\s_-]+/', '', trim((string) $cfg['npay_bank_code'])));
+        if (preg_match('/^\d{6}$/', $bank)) {
+            $params = array('ma_bin' => $bank);
+        } else {
+            $params = array('ngan_hang' => isset($aliases[$bank]) ? $aliases[$bank] : $bank);
+        }
+        $params['tai_khoan'] = (string) $cfg['npay_account_number'];
+        $params['so_tien']   = (string) (int) round((float) $amount);
+        $params['noi_dung']  = (string) $des;
+
+        $bare = in_array($cfg['npay_qr_template'], array('qr_only', 'qronly'), true);
+        if (!$bare && (string) $cfg['npay_account_name'] !== '') {
+            $params['chu_tai_khoan'] = (string) $cfg['npay_account_name'];
+        }
+        return 'https://qr.npay.vn' . ($bare ? '/qrpay' : '/qrcard') . '?' . http_build_query($params);
     }
 }
 
