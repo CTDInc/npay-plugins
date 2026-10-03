@@ -4,7 +4,7 @@ Tích hợp cổng thanh toán QR **NPay** vào cửa hàng Shopify dưới dạ
 
 Khách hàng đặt đơn trên Shopify → ứng dụng tạo mã `NPAY-{order_id}` và sinh QR thanh toán → khi NPay nhận được tiền, webhook đối soát và gọi Shopify Admin API để **capture** đơn hàng (đánh dấu đã thanh toán).
 
-Tham khảo: <https://docs.sepay.vn/tich-hop-shopify.html> · <https://shopify.dev/docs/api>
+Tham khảo: <https://docs.npay.vn> · <https://shopify.dev/docs/api>
 
 ---
 
@@ -63,11 +63,12 @@ Sau khi cấp quyền:
 Mở trang admin: `https://<HOST>/admin?shop=<your-store>.myshopify.com`
 
 Khai báo:
-- **Số tài khoản**, **BIN ngân hàng** (vd `970422` = MB), **Chủ tài khoản**.
-- **API token**: token bí mật trùng với token bạn cấu hình trên NPay (dùng để xác thực webhook).
-- **QR template**: `compact` (mặc định) / `qronly` / …
+- **Số tài khoản**, **BIN ngân hàng** (vd `970422` = MB, hoặc mã `mbbank`, `VCB`), **Chủ tài khoản**.
+- **NPay API key**: API key của webhook trên NPay (`Authorization: Apikey <key>`).
+- **NPay webhook secret** (tuỳ chọn): secret hiện khi bật **Ký request** trên dashboard.
+- **QR template**: `compact` (mặc định, thẻ VietQR `qr.npay.vn/qrcard`) / `qr_only` (chỉ mã QR, `/qrpay`).
 
-### Cấu hình webhook NPay/SePay
+### Cấu hình webhook NPay
 
 Trên dashboard NPay, thêm webhook về URL:
 
@@ -75,8 +76,10 @@ Trên dashboard NPay, thêm webhook về URL:
 https://<HOST>/webhooks/npay
 ```
 
-Loại xác thực: **API Key** — đặt header `Authorization: Apikey <token>`.
-Giá trị `<token>` phải khớp với **API token** đã lưu trong trang admin.
+Loại xác thực: **API Key** — NPay gửi `Authorization: Apikey <key>`, khớp với **NPay API key** đã lưu.
+Bật thêm **Ký request** thì NPay gửi `X-Npay-Signature` = hex HMAC-SHA256 của raw body (không có
+tiền tố `sha256=`) + `X-Npay-Timestamp`; app chấp nhận nếu đúng **một trong hai** (chữ ký lệch quá
+5 phút bị từ chối). Không khai cả hai thì mọi webhook bị từ chối.
 
 ---
 
@@ -87,7 +90,8 @@ Giá trị `<token>` phải khớp với **API token** đã lưu trong trang adm
 3. Bạn chuyển khách sang trang QR: `https://<HOST>/payment/NPAY-{order_id}` (ví dụ qua thank-you script, email, hoặc redirect tại checkout extension).
 4. Trang QR hiển thị mã NPay (VietQR), thông tin tài khoản, đếm ngược + JS poll `/status/:refCode`.
 5. Khi khách chuyển khoản, NPay gọi `/webhooks/npay`.
-6. Plugin xác thực `Apikey`, đối khớp số tiền, gọi Shopify:
+6. Plugin chỉ xét `transferType = "in"`, tìm `NPAY-{order_id}` trong `code`/`content` (ngân hàng bỏ
+   dấu `-` thành `NPAY1001` vẫn khớp), xác thực `Apikey` hoặc chữ ký, đòi số tiền ≥ đơn, rồi gọi Shopify:
    `POST /admin/api/2024-10/orders/{id}/transactions.json` với `kind=capture`.
 7. Đơn hàng chuyển trạng thái **paid** trên Shopify.
 
@@ -144,6 +148,14 @@ docker run --rm -p 3000:3000 --env-file .env npay-shopify
 ```
 
 ---
+
+## Thay đổi
+
+### 1.1.0
+
+- QR chuyển từ `qr.sepay.vn` sang `https://qr.npay.vn/qrcard` (`/qrpay` khi `qr_only`).
+- Webhook NPay: chỉ nhận `transferType = "in"`, mã đơn không cần dấu `-`, thêm webhook secret
+  (`X-Npay-Signature`), giao dịch không khớp / chuyển thiếu trả 200 thay vì 400/404.
 
 ## Bản quyền
 

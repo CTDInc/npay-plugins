@@ -45,42 +45,54 @@ router.post('/shopify', rawJson, async (req, res) => {
   }
 });
 
-// POST /webhooks/npay — npay/SePay transaction webhook
-router.post('/npay', express.json({ limit: '2mb' }), async (req, res) => {
+// POST /webhooks/npay — NPay transaction webhook.
+// Unmatched transfers answer 200 so NPay doesn't retry them forever; auth
+// failures stay 401.
+router.post('/npay', express.raw({ type: '*/*', limit: '2mb' }), async (req, res) => {
   try {
-    const auth = req.get('Authorization');
-    const payload = req.body || {};
-
-    let refCode = npayClient.extractRefCode(payload);
-    if (!refCode && typeof payload.code === 'string') refCode = payload.code;
-    if (!refCode) {
-      return res.status(400).json({ success: false, message: 'Missing reference code' });
+    const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from('');
+    let payload;
+    try {
+      payload = JSON.parse(raw.toString('utf8') || '{}');
+    } catch {
+      return res.status(400).json({ success: false, message: 'Invalid JSON' });
     }
-    refCode = refCode.toUpperCase();
+
+    if (String(payload.transferType || 'in').toLowerCase() !== 'in') {
+      return res.status(200).json({ success: true, ignored: 'not an incoming transfer' });
+    }
+
+    const refCode = npayClient.extractRefCode(payload);
+    if (!refCode) {
+      return res.status(200).json({ success: true, ignored: 'no reference code' });
+    }
     const order = db.getOrderByRef(refCode);
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+      return res.status(200).json({ success: true, ignored: 'order not found', ref_code: refCode });
     }
     const shop = db.getShop(order.shop_domain);
     if (!shop) {
-      return res.status(404).json({ success: false, message: 'Shop not found' });
+      return res.status(200).json({ success: true, ignored: 'shop not found' });
     }
-    if (!npayClient.verifyWebhook(auth, shop.api_token)) {
-      return res.status(401).json({ success: false, message: 'Invalid API token' });
+    const apikeyOk = npayClient.verifyWebhook(req.get('Authorization'), shop.api_token);
+    const signatureOk = npayClient.verifySignature(
+      raw,
+      req.get('X-Npay-Signature'),
+      shop.webhook_secret,
+      req.get('X-Npay-Timestamp')
+    );
+    if (!apikeyOk && !signatureOk) {
+      return res.status(401).json({ success: false, message: 'Invalid API key or signature' });
     }
     if (order.status === 'paid') {
       return res.status(200).json({ success: true, message: 'Already paid' });
     }
 
-    // Optionally cross-check amount (npay payload field varies)
-    const paidAmount = parseFloat(
-      payload.transferAmount ?? payload.amount ?? payload.transfer_amount ?? 0
-    );
-    if (paidAmount && paidAmount + 0.01 < parseFloat(order.amount)) {
-      return res.status(400).json({ success: false, message: 'Underpaid' });
+    const paidAmount = parseFloat(payload.transferAmount ?? payload.amount ?? 0) || 0;
+    if (paidAmount + 0.01 < parseFloat(order.amount)) {
+      return res.status(200).json({ success: true, ignored: 'underpaid', expected: order.amount, received: paidAmount });
     }
 
-    // Mark paid on Shopify
     try {
       await shopifyClient.createTransaction(shop.shop_domain, shop.access_token, order.shopify_order_id, {
         amount: order.amount,
@@ -93,7 +105,7 @@ router.post('/npay', express.json({ limit: '2mb' }), async (req, res) => {
     }
 
     db.markPaid(refCode);
-    res.json({ success: true, ref_code: refCode });
+    res.json({ success: true, ref_code: refCode, transaction_id: payload.id || null });
   } catch (err) {
     console.error('[npay-shopify] /webhooks/npay error:', err);
     res.status(500).json({ success: false, message: err.message });

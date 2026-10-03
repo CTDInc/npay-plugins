@@ -42,6 +42,10 @@ function init() {
     CREATE INDEX IF NOT EXISTS idx_orders_ref ON orders(ref_code);
     CREATE INDEX IF NOT EXISTS idx_orders_shopify ON orders(shopify_order_id);
   `);
+  const shopColumns = db.prepare('PRAGMA table_info(shops)').all().map((c) => c.name);
+  if (!shopColumns.includes('webhook_secret')) {
+    db.exec('ALTER TABLE shops ADD COLUMN webhook_secret TEXT');
+  }
 }
 
 function upsertShop(shopDomain, accessToken) {
@@ -55,7 +59,7 @@ function upsertShop(shopDomain, accessToken) {
 
 function updateShopSettings(shopDomain, settings) {
   const db = getDb();
-  const fields = ['account_number', 'bank_bin', 'account_holder', 'api_token', 'qr_template'];
+  const fields = ['account_number', 'bank_bin', 'account_holder', 'api_token', 'webhook_secret', 'qr_template'];
   const sets = [];
   const values = [];
   for (const f of fields) {

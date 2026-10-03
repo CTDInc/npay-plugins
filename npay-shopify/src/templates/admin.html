@@ -22,7 +22,7 @@
           <input name="account_number" value="{{account_number}}" required />
         </label>
         <label>
-          Ngân hàng (BIN, vd: 970422 = MB)
+          Ngân hàng (BIN vd 970422 = MB, hoặc mã như mbbank, VCB)
           <input name="bank_bin" value="{{bank_bin}}" required />
         </label>
         <label>
@@ -30,12 +30,16 @@
           <input name="account_holder" value="{{account_holder}}" />
         </label>
         <label>
-          API token (npay webhook)
+          NPay API key (Authorization: Apikey)
           <input name="api_token" value="{{api_token}}" />
         </label>
         <label>
+          NPay webhook secret (X-Npay-Signature, sao chép từ dashboard npay.vn)
+          <input name="webhook_secret" value="{{webhook_secret}}" />
+        </label>
+        <label>
           QR template
-          <input name="qr_template" value="{{qr_template}}" placeholder="compact" />
+          <input name="qr_template" value="{{qr_template}}" placeholder="compact (qr_only = chỉ mã QR)" />
         </label>
         <button type="submit" class="btn">Lưu cấu hình</button>
       </form>

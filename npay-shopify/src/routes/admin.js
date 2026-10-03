@@ -53,6 +53,7 @@ router.get('/', (req, res) => {
     bank_bin: escapeHtml(shop.bank_bin),
     account_holder: escapeHtml(shop.account_holder),
     api_token: escapeHtml(shop.api_token),
+    webhook_secret: escapeHtml(shop.webhook_secret),
     qr_template: escapeHtml(shop.qr_template || 'compact'),
     orders_rows: ordersHtml || '<tr><td colspan="5" class="empty">Chưa có đơn hàng</td></tr>',
   });
@@ -61,7 +62,7 @@ router.get('/', (req, res) => {
 
 // POST /admin/settings — save settings for a shop
 router.post('/settings', express.urlencoded({ extended: true }), (req, res) => {
-  const { shop, account_number, bank_bin, account_holder, api_token, qr_template } = req.body;
+  const { shop, account_number, bank_bin, account_holder, api_token, webhook_secret, qr_template } = req.body;
   if (!shop) return res.status(400).send('Missing shop');
   const existing = db.getShop(shop);
   if (!existing) return res.status(404).send('Shop not installed');
@@ -70,6 +71,7 @@ router.post('/settings', express.urlencoded({ extended: true }), (req, res) => {
     bank_bin,
     account_holder,
     api_token,
+    webhook_secret,
     qr_template,
   });
   res.redirect('/admin?shop=' + encodeURIComponent(shop));
