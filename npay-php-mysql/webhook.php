@@ -4,14 +4,16 @@
  *
  * Bảo mật:
  *   1. Authorization: Apikey <api_token>      (bắt buộc)
- *   2. X-NPay-Signature: <hmac-sha256-hex>    (tùy chọn, nếu hmac_secret được set)
+ *   2. X-Npay-Signature: <hmac-sha256-hex>    (tùy chọn, nếu hmac_secret được set;
+ *      X-Npay-Timestamp lệch > 5 phút bị từ chối)
  *
  * Idempotent:
- *   reference_number có UNIQUE index → INSERT IGNORE → trả 200 OK nếu trùng.
+ *   npay_id (trường `id` của webhook, dạng tx_…) có UNIQUE index → INSERT IGNORE
+ *   → trả 200 OK nếu trùng. `referenceCode` có thể null.
  *
  * Đối soát đơn hàng:
- *   - Trích NPAY{xxx} từ `content`
- *   - Tìm đơn pending có code đó, amount khớp ⇒ paid.
+ *   - Trích NPAY{xxx} từ `code` hoặc `content`
+ *   - Tìm đơn pending có code đó, tiền vào >= số tiền đơn ⇒ paid.
  *
  * Response:
  *   200 {success:true, ...}
@@ -43,8 +45,8 @@ if (!NPay::verifyApiKey($authHeader, $expected)) {
 // --- 3. (Optional) HMAC ------------------------------------------------------
 $secret = (string)($cfg['webhook']['hmac_secret'] ?? '');
 if ($secret !== '') {
-    $sig = NPay::header('X-NPay-Signature');
-    if (!NPay::verifySignature($raw, $sig, $secret)) {
+    $sig = NPay::header('X-Npay-Signature');
+    if (!NPay::verifySignature($raw, $sig, $secret, NPay::header('X-Npay-Timestamp'))) {
         NPay::json(['success' => false, 'message' => 'bad signature'], 401);
     }
 }
@@ -83,10 +85,14 @@ $accumulated      = (float)($data['accumulated']         ?? 0);
 $code             = $data['code']                         ?? null;
 $content          = (string)($data['content']            ?? $data['transaction_content'] ?? '');
 $referenceNumber  = (string)($data['referenceCode']      ?? $data['reference_number']    ?? '');
+$npayId           = (string)($data['id']                  ?? '');
 $bodyText         = isset($data['description']) ? (string)$data['description'] : $raw;
 
-if ($referenceNumber === '') {
-    NPay::json(['success' => false, 'message' => 'missing referenceCode'], 422);
+if ($npayId === '' && $referenceNumber !== '') {
+    $npayId = 'ref:' . $referenceNumber;
+}
+if ($npayId === '') {
+    NPay::json(['success' => false, 'message' => 'missing id'], 422);
 }
 
 // Auto-detect mã đơn nếu webhook không gửi code
@@ -101,14 +107,15 @@ $pdo->beginTransaction();
 try {
     $stmt = $pdo->prepare(
         "INSERT IGNORE INTO tb_transactions
-           (gateway, transaction_date, account_number, sub_account,
+           (npay_id, gateway, transaction_date, account_number, sub_account,
             amount_in, amount_out, accumulated, code,
             transaction_content, reference_number, body)
          VALUES
-           (:gateway, :tdate, :acc, :sub, :ain, :aout, :accum,
+           (:nid, :gateway, :tdate, :acc, :sub, :ain, :aout, :accum,
             :code, :content, :ref, :body)"
     );
     $stmt->execute([
+        ':nid'     => $npayId,
         ':gateway' => $gateway,
         ':tdate'   => $transactionDate,
         ':acc'     => $accountNumber,
@@ -118,7 +125,7 @@ try {
         ':accum'   => $accumulated,
         ':code'    => $code,
         ':content' => $content,
-        ':ref'     => $referenceNumber,
+        ':ref'     => $referenceNumber !== '' ? $referenceNumber : null,
         ':body'    => $bodyText,
     ]);
     $isNew = $stmt->rowCount() > 0;
@@ -126,8 +133,8 @@ try {
 
     if (!$isNew) {
         // Lấy id giao dịch đã tồn tại
-        $q = $pdo->prepare("SELECT id FROM tb_transactions WHERE reference_number = :ref LIMIT 1");
-        $q->execute([':ref' => $referenceNumber]);
+        $q = $pdo->prepare("SELECT id FROM tb_transactions WHERE npay_id = :nid LIMIT 1");
+        $q->execute([':nid' => $npayId]);
         $txId = (int)($q->fetchColumn() ?: 0);
     }
 
@@ -141,7 +148,7 @@ try {
         );
         $find->execute([':code' => $code]);
         $order = $find->fetch();
-        if ($order && abs((float)$order['amount'] - $amountIn) < 0.01) {
+        if ($order && $amountIn + 0.01 >= (float)$order['amount']) {
             $upd = $pdo->prepare(
                 "UPDATE tb_orders
                     SET status = 'paid',

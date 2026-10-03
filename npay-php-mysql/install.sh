@@ -53,6 +53,6 @@ fi
 
 echo "============================================"
 echo "  Done. Trỏ web server tới $ROOT"
-echo "  Sau đó cấu hình webhook URL trên https://my.npay.vn:"
+echo "  Sau đó cấu hình webhook URL trên https://npay.vn:"
 echo "    <BASE_URL>/webhook.php"
 echo "============================================"

@@ -9,6 +9,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `tb_transactions` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `npay_id` varchar(64) NOT NULL COMMENT 'id giao dịch NPay (tx_…) — khoá chống trùng',
   `gateway` varchar(100) NOT NULL,
   `transaction_date` timestamp NOT NULL,
   `account_number` varchar(100) DEFAULT NULL,
@@ -22,7 +23,8 @@ CREATE TABLE IF NOT EXISTS `tb_transactions` (
   `body` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_reference` (`reference_number`),
+  UNIQUE KEY `uq_npay_id` (`npay_id`),
+  KEY `idx_reference` (`reference_number`),
   KEY `idx_code` (`code`),
   KEY `idx_transaction_date` (`transaction_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

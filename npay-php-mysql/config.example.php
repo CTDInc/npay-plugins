@@ -24,10 +24,10 @@ return [
     // ---------------------------------------------------------------------
     // NPay Webhook authentication
     //
-    //  - api_token: token cấu hình trong dashboard https://my.npay.vn.
-    //               Webhook gửi `Authorization: Apikey <token>`.
-    //  - hmac_secret: (tùy chọn) secret để verify `X-NPay-Signature`
-    //               (HMAC-SHA256 của raw body).
+    //  - api_token: API key của webhook tạo trên dashboard https://npay.vn
+    //               (kiểu xác thực "API Key"). NPay gửi `Authorization: Apikey <token>`.
+    //  - hmac_secret: (tùy chọn) webhook secret hiện trên dashboard khi bật "Ký request".
+    //               Plugin kiểm `X-Npay-Signature` = hex HMAC-SHA256 của raw body.
     // ---------------------------------------------------------------------
     'webhook' => [
         'api_token'   => 'NPAY_API_TOKEN_HERE',
@@ -39,7 +39,7 @@ return [
     // Tài khoản nhận tiền — dùng để dựng QR động
     // ---------------------------------------------------------------------
     'account' => [
-        'bank_bin'       => '970422',                 // ví dụ MB Bank
+        'bank_bin'       => '970422',                 // ví dụ MB Bank (ưu tiên khi dựng QR)
         'bank_short'     => 'MB',
         'account_number' => '0123456789',
         'account_holder' => 'NGUYEN VAN A',
@@ -52,7 +52,7 @@ return [
     'endpoints' => [
         'api'       => 'https://api.npay.vn',
         'qr'        => 'https://qr.npay.vn',
-        'dashboard' => 'https://my.npay.vn',
+        'dashboard' => 'https://npay.vn',
     ],
 
     // ---------------------------------------------------------------------

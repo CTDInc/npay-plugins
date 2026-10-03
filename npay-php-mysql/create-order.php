@@ -10,7 +10,7 @@
  *     "success": true,
  *     "code":    "NPAY12",
  *     "amount":  100000,
- *     "qr_url":  "https://qr.npay.vn/img?...",
+ *     "qr_url":  "https://qr.npay.vn/qrcard?...",
  *     "pay_url": "https://yourdomain.tld/npay/pay.php?code=NPAY12",
  *     "status_url": "https://yourdomain.tld/npay/status.php?code=NPAY12"
  *   }

@@ -2,9 +2,10 @@
   "name": "npay/php-mysql-example",
   "description": "NPay webhook receiver + order management example — vanilla PHP + MySQL (PDO).",
   "type": "project",
+  "version": "1.1.0",
   "license": "MIT",
   "keywords": ["npay", "webhook", "vietqr", "payment", "mysql", "php"],
-  "homepage": "https://my.npay.vn",
+  "homepage": "https://npay.vn",
   "require": {
     "php": ">=7.4",
     "ext-pdo": "*",

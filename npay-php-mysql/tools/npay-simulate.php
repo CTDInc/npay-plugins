@@ -41,7 +41,7 @@ $secret = $cfg['webhook']['hmac_secret'] ?? '';
 $acc    = $cfg['account'] ?? [];
 
 $payload = [
-    'id'              => random_int(100000, 999999),
+    'id'              => 'tx_sim' . bin2hex(random_bytes(6)),
     'gateway'         => $acc['bank_short'] ?? 'MB',
     'transactionDate' => date('Y-m-d H:i:s'),
     'accountNumber'   => $acc['account_number'] ?? '',
@@ -61,7 +61,8 @@ $headers = [
     'Authorization: Apikey ' . $token,
 ];
 if ($secret !== '') {
-    $headers[] = 'X-NPay-Signature: ' . hash_hmac('sha256', $body, $secret);
+    $headers[] = 'X-Npay-Signature: ' . hash_hmac('sha256', $body, $secret);
+    $headers[] = 'X-Npay-Timestamp: ' . time();
 }
 
 $ch = curl_init($url);
