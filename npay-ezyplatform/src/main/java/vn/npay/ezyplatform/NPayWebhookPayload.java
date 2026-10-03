@@ -10,8 +10,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class NPayWebhookPayload {
 
-    /** ID giao dịch trên hệ thống NPay. */
-    private Long id;
+    /** ID công khai của giao dịch trên NPay (chuỗi dạng "tx_…") — khoá chống trùng. */
+    private String id;
 
     /** Brand name của ngân hàng (vd "MB", "Vietcombank"). */
     private String gateway;
@@ -45,15 +45,15 @@ public class NPayWebhookPayload {
     @JsonProperty("subAccount")
     private String subAccount;
 
-    /** Mã tham chiếu duy nhất của ngân hàng. */
+    /** Mã tham chiếu của ngân hàng — có thể null, đừng dùng làm khoá chống trùng. */
     @JsonProperty("referenceCode")
     private String referenceCode;
 
     /** Mô tả thêm. */
     private String description;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
     public String getGateway() { return gateway; }
     public void setGateway(String gateway) { this.gateway = gateway; }

@@ -16,7 +16,19 @@ public interface OrderService {
     void markPaid(String orderCode, long amount, String referenceCode);
 
     /**
-     * (Tuỳ chọn) Lấy số tiền cần thanh toán của đơn.
+     * Như {@link #markPaid(String, long, String)}, kèm id giao dịch NPay ("tx_…").
+     * NPay có thể gửi lại cùng một giao dịch (retry) — host nên ghi nhận theo
+     * {@code transactionId} một lần duy nhất (vd cột unique). Mặc định gọi bản 3 tham số.
+     *
+     * @param transactionId id công khai của giao dịch NPay, có thể null với payload cũ
+     */
+    default void markPaid(String orderCode, long amount, String referenceCode, String transactionId) {
+        markPaid(orderCode, amount, referenceCode);
+    }
+
+    /**
+     * (Tuỳ chọn) Lấy số tiền cần thanh toán của đơn. Trả &gt; 0 thì webhook bỏ qua
+     * giao dịch chuyển thiếu; 0 = không kiểm.
      */
     default long getAmountDue(String orderCode) {
         return 0L;

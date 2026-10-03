@@ -17,11 +17,11 @@ class NPayQrServiceTest {
                 null,
                 null
         );
-        assertTrue(url.startsWith("https://qr.npay.vn/img?"), "URL phải bắt đầu bằng qr.npay.vn/img?");
-        assertTrue(url.contains("acc=0123456789"));
-        assertTrue(url.contains("bank=970422"));
-        assertTrue(url.contains("amount=100000"));
-        assertTrue(url.contains("des=NPAY42"));
+        assertTrue(url.startsWith("https://qr.npay.vn/qrcard?"), "URL phải bắt đầu bằng qr.npay.vn/qrcard?");
+        assertTrue(url.contains("ma_bin=970422"));
+        assertTrue(url.contains("tai_khoan=0123456789"));
+        assertTrue(url.contains("so_tien=100000"));
+        assertTrue(url.contains("noi_dung=NPAY42"));
     }
 
     @Test
@@ -36,11 +36,10 @@ class NPayQrServiceTest {
                 "compact"
         );
         // baseUrl trailing slash phải được trim
-        assertFalse(url.contains("//img"));
-        assertTrue(url.contains("template=compact"));
+        assertTrue(url.startsWith("https://qr.npay.vn/qrcard?"));
         // space được encode thành '+' bởi URLEncoder
-        assertTrue(url.contains("accountName=CONG+TY+NPAY"));
-        assertTrue(url.contains("des=ORDER-1"));
+        assertTrue(url.contains("chu_tai_khoan=CONG+TY+NPAY"));
+        assertTrue(url.contains("noi_dung=ORDER-1"));
     }
 
     @Test
@@ -54,7 +53,7 @@ class NPayQrServiceTest {
                 null,
                 null
         );
-        assertFalse(url.contains("amount="), "amount=0 thì không append");
+        assertFalse(url.contains("so_tien="), "amount=0 thì không append");
     }
 
     @Test
@@ -68,7 +67,39 @@ class NPayQrServiceTest {
                 null,
                 null
         );
-        assertTrue(url.startsWith("https://qr.npay.vn/img?"));
+        assertTrue(url.startsWith("https://qr.npay.vn/qrcard?"));
+    }
+
+    @Test
+    void buildQrUrl_bankCodeAndBareQr() {
+        String url = NPayQrService.buildQrUrl(
+                "https://qr.npay.vn/img",
+                "0123456789",
+                "VCB",
+                1000L,
+                "A",
+                "CONG TY NPAY",
+                "qr_only"
+        );
+        assertTrue(url.startsWith("https://qr.npay.vn/qrpay?"));
+        assertTrue(url.contains("ngan_hang=vietcombank"));
+        assertFalse(url.contains("chu_tai_khoan"));
+    }
+
+    @Test
+    void hmacSha256Hex_matchesKnownVector() {
+        // RFC 4231 test case 2
+        assertEquals("5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843",
+                NPayWebhookController.hmacSha256Hex("Jefe", "what do ya want for nothing?"));
+    }
+
+    @Test
+    void payload_acceptsStringId() throws Exception {
+        NPayWebhookPayload p = new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+                "{\"id\":\"tx_8f3k2m9q\",\"transferType\":\"in\",\"transferAmount\":1000,\"referenceCode\":null}",
+                NPayWebhookPayload.class);
+        assertEquals("tx_8f3k2m9q", p.getId());
+        assertNull(p.getReferenceCode());
     }
 
     @Test

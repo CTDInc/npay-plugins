@@ -30,8 +30,10 @@ public class NPayPlugin {
     public void init() {
         log.info("[NPay] Plugin khởi tạo thành công. Bank={}, Acc={}, Holder={}",
                 config.getBankBin(), mask(config.getAccountNumber()), config.getAccountHolder());
-        if (config.getApiToken() == null || config.getApiToken().isBlank()) {
-            log.warn("[NPay] Thiếu apiToken — webhook sẽ từ chối tất cả request!");
+        boolean noToken = config.getApiToken() == null || config.getApiToken().isBlank();
+        boolean noSecret = config.getWebhookSecret() == null || config.getWebhookSecret().isBlank();
+        if (noToken && noSecret) {
+            log.warn("[NPay] Thiếu apiToken và webhookSecret — webhook sẽ từ chối tất cả request!");
         }
     }
 
