@@ -1,6 +1,6 @@
 # npay-ladipage
 
-> Plugin webhook receiver chuẩn **standalone** dùng để tích hợp [LadiPage](https://ladipage.vn) với cổng thanh toán **NPay** (`api.npay.vn`, `qr.npay.vn`, `my.npay.vn`).
+> Plugin webhook receiver chuẩn **standalone** dùng để tích hợp [LadiPage](https://ladipage.vn) với cổng thanh toán **NPay** (`api.npay.vn`, `qr.npay.vn`, dashboard `npay.vn`).
 
 Plugin gồm một bộ file PHP nhỏ gọn (không phụ thuộc framework, chỉ cần PHP ≥ 7.4 + SQLite). Bạn deploy thẳng vào `public_html/npay/` của host là chạy.
 
@@ -66,8 +66,10 @@ Hoặc thủ công:
 ```php
 return [
     'api_token'      => 'chuoi-random-dai-it-nhat-40-ky-tu',
+    'npay_api_key'        => 'api-key-cua-webhook-tren-npay',
+    'npay_webhook_secret' => 'webhook-secret-sao-chep-tu-dashboard-npay',
     'account_number' => '0123456789',
-    'bank_bin'       => '970422',        // MB Bank, đổi theo ngân hàng của bạn
+    'bank_bin'       => '970422',        // BIN hoặc mã ngân hàng (vd 'mbbank')
     'account_holder' => 'NGUYEN VAN A',
     'qr_template'    => 'compact',
     'base_url'       => 'https://yourdomain.com/npay',
@@ -75,7 +77,7 @@ return [
 ];
 ```
 
-> 🔐 **Quan trọng:** Đặt `api_token` thật mạnh — token này vừa bảo vệ `admin.php` vừa dùng để verify chữ ký webhook NPay (`Authorization: Bearer ...` hoặc `X-NPay-Signature: <hmac_sha256>`).
+> 🔐 **Quan trọng:** Đặt `api_token` thật mạnh — token này bảo vệ `admin.php` (và được dùng làm API key webhook nếu để trống `npay_api_key`).
 
 ---
 
@@ -101,19 +103,21 @@ return [
 
 ## 4. Cấu hình webhook NPay
 
-1. Đăng nhập [my.npay.vn](https://my.npay.vn) → **Webhook / Tích hợp**.
+1. Đăng nhập [npay.vn](https://npay.vn) → **Webhook**.
 2. Thêm webhook mới:
    - **URL**: `https://yourdomain.com/npay/webhook.php?source=npay`
-   - **Method**: `POST`
-   - **Authentication**: chọn **Bearer Token** rồi dán giá trị `api_token`.
-     *Hoặc* dùng **HMAC SHA256** với secret = `api_token` (plugin verify cả 2).
+   - **Xác thực**: **API Key** — NPay gửi `Authorization: Apikey <key>`; dán cùng key vào `npay_api_key`.
+   - **Ký request**: bật, rồi sao chép **webhook secret** vào `npay_webhook_secret`. Plugin kiểm
+     `X-Npay-Signature` = hex HMAC-SHA256 của raw body (không có tiền tố `sha256=`) và từ chối nếu
+     `X-Npay-Timestamp` lệch quá 5 phút.
+   - Request hợp lệ khi khớp **một trong hai**; để trống cả hai thì mọi webhook bị từ chối (401).
 3. Bấm **Test webhook** để gửi payload mẫu — plugin sẽ trả `{"ok":true,"matched":false}` nếu chữ ký hợp lệ nhưng chưa có đơn nào khớp.
 
 ### Payload mẫu plugin xử lý được
 
 ```json
 {
-    "id": "TX123456",
+    "id": "tx_8f3k2m9q",
     "gateway": "MBBank",
     "transactionDate": "2026-05-13 17:30:00",
     "accountNumber": "0123456789",
@@ -124,7 +128,9 @@ return [
 }
 ```
 
-Plugin tìm `ref_code` (vd `NP000123`) bằng `stripos` trong trường `content`/`description`/`transferContent`. Nếu có nhiều đơn `pending` cùng số tiền, plugin sẽ ưu tiên match theo cả `amount` lẫn `content`.
+Plugin tìm `ref_code` (vd `NP000123`) bằng `stripos` trong `code` + `content`/`description`/`transferContent`.
+Chỉ giao dịch `transferType = "in"` được xét, và đơn chỉ chuyển sang `paid` khi
+`transferAmount` **≥** số tiền đơn (chuyển thiếu vẫn trả 200 kèm `"reason": "underpaid"`).
 
 ---
 
@@ -183,6 +189,17 @@ find . -maxdepth 2 -name '*.php' -print0 | xargs -0 -n1 php -l
 
 ---
 
-## 9. License
+## 9. Thay đổi
+
+### 1.1.0
+
+- QR chuyển sang `https://qr.npay.vn/qrcard` / `/qrpay` (`/img` không còn).
+- Webhook nhận `Authorization: Apikey`; chữ ký `X-Npay-Signature` dùng `npay_webhook_secret`.
+- Bỏ qua giao dịch tiền ra; chuyển thiếu không đánh dấu đã thanh toán.
+- Nút "Mở ứng dụng NPay" trỏ về <https://npay.vn>.
+
+---
+
+## 10. License
 
 MIT.

@@ -7,17 +7,23 @@
  */
 
 return [
-    // Admin / API token used for:
-    //   - protecting admin.php login
-    //   - verifying NPay webhook signature (HMAC) and/or Bearer header
+    // Admin token protecting admin.php login. Also accepted as the NPay
+    // `Authorization: Apikey` value when npay_api_key is empty.
     'api_token' => 'CHANGE_ME_TO_A_LONG_RANDOM_STRING',
+
+    // NPay webhook auth — paste from the webhook you created on https://npay.vn.
+    // A request passes if EITHER matches; leave both empty = every webhook is rejected.
+    //   npay_api_key:        sent as `Authorization: Apikey <key>` (auth type "API Key")
+    //   npay_webhook_secret: signs the raw body, `X-Npay-Signature` = hex HMAC-SHA256
+    'npay_api_key'        => '',
+    'npay_webhook_secret' => '',
 
     // Bank account that customers will transfer into.
     'account_number' => '0123456789',
-    'bank_bin'       => '970422', // e.g. MBBank = 970422, Vietcombank = 970436
+    'bank_bin'       => '970422', // BIN (MBBank = 970422, Vietcombank = 970436) or bank key e.g. 'mbbank'
     'account_holder' => 'NGUYEN VAN A',
 
-    // QR template used by qr.npay.vn (compact, compact2, qr_only, print)
+    // QR style: 'qr_only' = bare QR (/qrpay), anything else = VietQR card (/qrcard).
     'qr_template' => 'compact',
 
     // Default order amount (VND). Used as fallback if LadiPage form doesn't post 'amount'.
@@ -39,7 +45,7 @@ return [
     // NPay endpoints (rarely needs changing).
     'npay_api_base' => 'https://api.npay.vn',
     'npay_qr_base'  => 'https://qr.npay.vn',
-    'npay_my_base'  => 'https://my.npay.vn',
+    'npay_site'     => 'https://npay.vn',
 
     // Optional: whitelist of IPs allowed to POST to webhook.php?source=npay.
     // Leave empty to disable IP check (signature is still verified).

@@ -60,7 +60,7 @@ $remaining   = max(0, $deadlineTs - time());
         </div>
 
         <dl class="bank-info">
-            <dt>Ngân hàng</dt><dd>BIN <?= htmlspecialchars($config['bank_bin']) ?></dd>
+            <dt>Ngân hàng</dt><dd><?= htmlspecialchars($config['bank_bin']) ?></dd>
             <dt>Số tài khoản</dt><dd><strong><?= htmlspecialchars($config['account_number']) ?></strong></dd>
             <dt>Chủ tài khoản</dt><dd><?= htmlspecialchars($config['account_holder']) ?></dd>
             <dt>Số tiền</dt><dd><strong><?= number_format((int) $order['amount'], 0, ',', '.') ?> đ</strong></dd>

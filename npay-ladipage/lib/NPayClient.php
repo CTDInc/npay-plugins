@@ -13,38 +13,58 @@ class NPayClient
         $this->config = $config;
     }
 
+    private const BANK_ALIASES = [
+        'vcb' => 'vietcombank', 'tcb' => 'techcombank', 'ctg' => 'vietinbank', 'icb' => 'vietinbank',
+        'mb' => 'mbbank', 'vpb' => 'vpbank', 'tpb' => 'tpbank', 'stb' => 'sacombank',
+        'hdb' => 'hdbank', 'eib' => 'eximbank', 'vba' => 'agribank', 'agr' => 'agribank',
+        'lpb' => 'lienvietpostbank', 'lpbank' => 'lienvietpostbank', 'nab' => 'namabank',
+        'abb' => 'abbank', 'bab' => 'bacabank', 'pvcb' => 'pvcombank', 'seab' => 'seabank',
+        'klb' => 'kienlongbank', 'vab' => 'vietabank', 'sgicb' => 'saigonbank', 'bvb' => 'banviet',
+    ];
+
     /**
      * Build a qr.npay.vn image URL.
      *
-     * Format: https://qr.npay.vn/img?acc=ACCOUNT&bank=BIN&amount=AMOUNT&des=CONTENT&template=TEMPLATE
+     * Format: https://qr.npay.vn/qrcard?ma_bin=BIN&tai_khoan=ACC&so_tien=AMOUNT&noi_dung=CONTENT&chu_tai_khoan=NAME
+     * (`qr_template` = `qr_only` gives the bare QR from /qrpay).
      */
     public function buildQrUrl(string $refCode, int $amount): string
     {
         $base = rtrim($this->config['npay_qr_base'] ?? 'https://qr.npay.vn', '/');
-        $params = [
-            'acc'         => $this->config['account_number'] ?? '',
-            'bank'        => $this->config['bank_bin'] ?? '',
-            'amount'      => $amount,
-            'des'         => $refCode,
-            'template'    => $this->config['qr_template'] ?? 'compact',
-            'accountName' => $this->config['account_holder'] ?? '',
+        $base = preg_replace('#/(img|qrpay|qrcard)$#', '', $base);
+        $bareQr = in_array($this->config['qr_template'] ?? '', ['qr_only', 'qronly'], true);
+        $params = self::bankParam((string) ($this->config['bank_bin'] ?? '')) + [
+            'tai_khoan' => (string) ($this->config['account_number'] ?? ''),
+            'so_tien'   => (string) $amount,
+            'noi_dung'  => $refCode,
         ];
-        return $base . '/img?' . http_build_query($params);
+        $holder = (string) ($this->config['account_holder'] ?? '');
+        if (!$bareQr && $holder !== '') {
+            $params['chu_tai_khoan'] = $holder;
+        }
+        return $base . ($bareQr ? '/qrpay?' : '/qrcard?') . http_build_query($params);
     }
 
     /**
-     * Build a deeplink/link to my.npay.vn for the customer to open NPay app.
+     * gen-qr takes either a Napas BIN (`ma_bin`) or a vietnam-qr-pay key (`ngan_hang`).
+     *
+     * @return array<string, string>
+     */
+    public static function bankParam(string $bank): array
+    {
+        $bank = strtolower((string) preg_replace('/[\s_-]+/', '', trim($bank)));
+        if (preg_match('/^\d{6}$/', $bank)) {
+            return ['ma_bin' => $bank];
+        }
+        return ['ngan_hang' => self::BANK_ALIASES[$bank] ?? $bank];
+    }
+
+    /**
+     * Link for the "Mở ứng dụng NPay" button.
      */
     public function buildPayLink(string $refCode, int $amount): string
     {
-        $base = rtrim($this->config['npay_my_base'] ?? 'https://my.npay.vn', '/');
-        $params = [
-            'acc'    => $this->config['account_number'] ?? '',
-            'bank'   => $this->config['bank_bin'] ?? '',
-            'amount' => $amount,
-            'des'    => $refCode,
-        ];
-        return $base . '/pay?' . http_build_query($params);
+        return (string) ($this->config['npay_site'] ?? 'https://npay.vn');
     }
 
     /**
@@ -60,43 +80,41 @@ class NPayClient
      * Verify the NPay webhook request.
      *
      * Accepts EITHER:
-     *   - Authorization: Bearer <api_token>
-     *   - X-NPay-Signature: hex( hmac_sha256(raw_body, api_token) )
+     *   - Authorization: Apikey <npay_api_key>   (Bearer still accepted for old setups)
+     *   - X-Npay-Signature: hex( hmac_sha256(raw_body, npay_webhook_secret) )
+     *     with X-Npay-Timestamp (if sent) no older than 5 minutes.
+     * `npay_api_key` falls back to `api_token`. Nothing configured = reject.
      */
     public function verifyWebhook(string $rawBody, array $headers): bool
     {
-        $token = $this->config['api_token'] ?? '';
-        if ($token === '' || $token === 'CHANGE_ME_TO_A_LONG_RANDOM_STRING') {
-            return false;
+        $apiKey = (string) ($this->config['npay_api_key'] ?? '');
+        if ($apiKey === '') {
+            $apiKey = (string) ($this->config['api_token'] ?? '');
         }
+        if ($apiKey === 'CHANGE_ME_TO_A_LONG_RANDOM_STRING') {
+            $apiKey = '';
+        }
+        $secret = (string) ($this->config['npay_webhook_secret'] ?? '');
 
-        // Normalize headers to lowercase keys.
         $h = [];
         foreach ($headers as $k => $v) {
-            $h[strtolower($k)] = is_array($v) ? implode(',', $v) : $v;
+            $h[strtolower((string) $k)] = is_array($v) ? implode(',', $v) : (string) $v;
         }
 
-        // 1. Bearer token
-        if (!empty($h['authorization'])) {
-            if (preg_match('/^Bearer\s+(.+)$/i', $h['authorization'], $m)) {
-                if (hash_equals($token, trim($m[1]))) {
-                    return true;
-                }
+        if ($apiKey !== '') {
+            $auth = trim($h['authorization'] ?? '');
+            if (preg_match('/^(Apikey|Bearer)\s+(.+)$/i', $auth, $m) && hash_equals($apiKey, trim($m[2]))) {
+                return true;
             }
-        }
-
-        // 2. HMAC signature
-        $sig = $h['x-npay-signature'] ?? $h['x-signature'] ?? '';
-        if ($sig !== '') {
-            $expected = hash_hmac('sha256', $rawBody, $token);
-            if (hash_equals($expected, strtolower(trim($sig)))) {
+            if (!empty($h['x-api-key']) && hash_equals($apiKey, trim($h['x-api-key']))) {
                 return true;
             }
         }
 
-        // 3. Plain api_key query/body param (fallback for simple setups)
-        if (!empty($h['x-api-key']) && hash_equals($token, trim($h['x-api-key']))) {
-            return true;
+        $sig = strtolower(trim($h['x-npay-signature'] ?? ''));
+        if ($secret !== '' && $sig !== '' && hash_equals(hash_hmac('sha256', $rawBody, $secret), $sig)) {
+            $ts = trim($h['x-npay-timestamp'] ?? '');
+            return $ts === '' || (ctype_digit($ts) && abs(time() - (int) $ts) <= 300);
         }
 
         return false;
@@ -106,7 +124,7 @@ class NPayClient
      * Extract a normalized payment record out of an NPay webhook payload.
      * NPay uses keys similar to SePay; we try several common names.
      *
-     * @return array{content:string, amount:int, transaction_id:string, raw:array}
+     * @return array{type:string, content:string, amount:int, transaction_id:string, raw:array}
      */
     public function parseWebhookPayload(array $payload): array
     {
@@ -133,8 +151,11 @@ class NPayClient
             ?? ''
         );
 
+        $code = (string) ($payload['code'] ?? '');
+
         return [
-            'content'        => $content,
+            'type'           => strtolower((string) ($payload['transferType'] ?? 'in')),
+            'content'        => trim($code . ' ' . $content),
             'amount'         => $amount,
             'transaction_id' => $tid,
             'raw'            => $payload,

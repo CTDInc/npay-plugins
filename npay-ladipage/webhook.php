@@ -151,18 +151,33 @@ function handleNPay(Database $db, NPayClient $client, array $config): void
 
     $parsed = $client->parseWebhookPayload($payload);
 
-    // Try matching by ref_code substring inside transfer content.
-    $order = $db->matchByContent($parsed['content'], $parsed['amount'] > 0 ? $parsed['amount'] : null);
-    if (!$order) {
-        // Fall back: match content only, ignoring amount.
-        $order = $db->matchByContent($parsed['content']);
+    if ($parsed['type'] !== 'in') {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => true, 'matched' => false, 'ignored' => 'not an incoming transfer']);
+        return;
     }
+
+    $order = $db->matchByContent($parsed['content']);
 
     if (!$order) {
         // We accept the webhook but flag it as unmatched (return 200 so NPay doesn't retry forever).
         error_log('[npay-ladipage] unmatched payment: ' . $parsed['content']);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['ok' => true, 'matched' => false]);
+        return;
+    }
+
+    if ($parsed['amount'] < (int) $order['amount']) {
+        error_log('[npay-ladipage] underpaid ' . $order['ref_code'] . ': ' . $parsed['amount'] . ' < ' . $order['amount']);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'ok'       => true,
+            'matched'  => true,
+            'paid'     => false,
+            'reason'   => 'underpaid',
+            'expected' => (int) $order['amount'],
+            'received' => $parsed['amount'],
+        ]);
         return;
     }
 
