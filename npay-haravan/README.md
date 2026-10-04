@@ -61,14 +61,19 @@ Trong `config.php`:
 
 ```php
 'npay' => [
-    'bank_id'        => 'BIDV',
+    'bank_id'        => 'BIDV',   // BIN Napas (970418) hoặc mã/slug: BIDV, VCB, mbbank…
     'account_number' => '0123456789',
     'account_name'   => 'CONG TY NPAY',
     'api_key'        => '',   // Authorization: Apikey <api_key>
     'webhook_secret' => '',   // X-Npay-Signature
-    'qr_template'    => 'compact2',
+    'qr_template'    => 'compact',            // 'qr_only' = chỉ mã QR
+    'qr_endpoint'    => 'https://qr.npay.vn',
 ],
 ```
+
+Ảnh QR lấy từ `https://qr.npay.vn/qrcard` (thẻ VietQR) hoặc `/qrpay` khi `qr_template = 'qr_only'`.
+`bank_id` 6 chữ số gửi thành `ma_bin`; còn lại gửi `ngan_hang`, mã viết tắt phổ biến (`VCB`, `MB`,
+`TCB`, `VTB`…) tự đổi sang slug (`vietcombank`, `mbbank`…).
 
 Trên dashboard NPay (<https://npay.vn>), tạo webhook với **URL** `{app_url}/webhook/npay`.
 
@@ -118,6 +123,11 @@ php -S 0.0.0.0:8080 index.php
 (Bạn cần Apache/Nginx với rewrite để route đẹp; built-in server chỉ phục vụ debug.)
 
 ## Thay đổi
+
+### 1.1.1
+
+- QR chuyển từ `img.vietqr.io` sang `https://qr.npay.vn/qrcard` (`/qrpay` khi `qr_template = 'qr_only'`);
+  thêm `npay.qr_endpoint`. Template kiểu VietQR.io cũ (`compact2`…) giờ ra thẻ `/qrcard`.
 
 ### 1.1.0
 

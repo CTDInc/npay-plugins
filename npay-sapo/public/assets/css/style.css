@@ -66,4 +66,6 @@ body {
 .status--pending { color: var(--warn); }
 .status--cancelled, .status--expired { color: var(--err); }
 .flash.ok { background: #e7f7ef; color: var(--ok); padding: 10px; border-radius: 8px; margin: 12px auto; max-width: 880px; }
+.flash.err { background: #fdecec; color: var(--err); padding: 10px; border-radius: 8px; margin: 12px 0; }
+.npay-admin form.inline { display: inline; }
 pre { background: #0c1424; color: #d4dbe8; padding: 12px; border-radius: 8px; overflow-x: auto; }

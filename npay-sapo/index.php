@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/vendor/autoload.php';
 
+use NPay\Sapo\AdminAuth;
 use NPay\Sapo\Router;
 use NPay\Sapo\Database;
 use NPay\Sapo\SapoClient;
@@ -26,15 +27,16 @@ $npayClient  = new NPayClient($config, $db);
 $paymentPage = new PaymentPage($config, $db, $npayClient);
 $sapoHook    = new SapoWebhook($config, $db, $sapoClient, $npayClient);
 $npayHook    = new NPayWebhook($config, $db, $sapoClient);
+$auth        = new AdminAuth($config);
 
 $router = new Router();
 
 // ---- OAuth install / callback ----
 $router->get('/install', function () use ($config, $sapoClient): void {
     $shop = $_GET['shop'] ?? '';
-    if ($shop === '') {
+    if ($shop === '' || !preg_match('/^[a-zA-Z0-9][a-zA-Z0-9\-\.]*$/', $shop)) {
         http_response_code(400);
-        echo 'Missing ?shop parameter (e.g. yourstore.mysapo.net).';
+        echo 'Missing or invalid ?shop parameter (e.g. yourstore.mysapo.net).';
         return;
     }
     $state = bin2hex(random_bytes(8));
@@ -43,17 +45,20 @@ $router->get('/install', function () use ($config, $sapoClient): void {
     header('Location: ' . $url);
 });
 
-$router->get('/oauth/callback', function () use ($sapoClient): void {
+$router->get('/oauth/callback', function () use ($sapoClient, $auth): void {
     $shop  = $_GET['shop']  ?? '';
     $code  = $_GET['code']  ?? '';
     $state = $_GET['state'] ?? '';
     $expected = $_COOKIE['npay_sapo_state'] ?? '';
-    if ($shop === '' || $code === '' || $state === '' || !hash_equals($expected, $state)) {
+    if ($shop === '' || $code === '' || $state === '' || !hash_equals($expected, $state)
+        || !preg_match('/^[a-zA-Z0-9][a-zA-Z0-9\-\.]*$/', $shop)) {
         http_response_code(400);
         echo 'Invalid OAuth callback.';
         return;
     }
     $store = $sapoClient->exchangeCode($shop, $code);
+    setcookie('npay_sapo_state', '', time() - 3600, '/', '', true, true);
+    $auth->grantStore((int)$store['id']);
     header('Location: /admin?store=' . urlencode((string)$store['id']));
 });
 
@@ -77,18 +82,67 @@ $router->get('/status/{orderId}', function (array $params) use ($paymentPage): v
 });
 
 // ---- Admin ----
-$router->get('/admin', function () use ($config, $db): void {
+$router->get('/admin/login', function () use ($config, $auth): void {
+    $passwordConfigured = $auth->passwordConfigured();
+    $error   = !empty($_GET['error']);
     $storeId = isset($_GET['store']) ? (int)$_GET['store'] : 0;
-    $store   = $storeId ? $db->findStore($storeId) : null;
-    $orders  = $store   ? $db->listOrders((int)$store['id'], 50) : [];
+    $csrf    = $auth->csrfToken();
+    header('Cache-Control: no-store');
+    include __DIR__ . '/templates/login.php';
+});
+
+$router->post('/admin/login', function () use ($auth): void {
+    $storeId = (int)($_POST['store'] ?? 0);
+    $back    = '/admin' . ($storeId ? '?store=' . $storeId : '');
+    if (!$auth->checkCsrf((string)($_POST['csrf'] ?? '')) || !$auth->login((string)($_POST['password'] ?? ''))) {
+        usleep(500000);
+        header('Location: /admin/login?error=1' . ($storeId ? '&store=' . $storeId : ''));
+        return;
+    }
+    header('Location: ' . $back);
+});
+
+$router->post('/admin/logout', function () use ($auth): void {
+    if ($auth->checkCsrf((string)($_POST['csrf'] ?? ''))) {
+        $auth->logout();
+    }
+    header('Location: /admin/login');
+});
+
+$router->get('/admin', function () use ($config, $db, $auth): void {
+    $storeId = isset($_GET['store']) ? (int)$_GET['store'] : 0;
+    if (!$auth->isAuthenticated()) {
+        header('Location: /admin/login' . ($storeId ? '?store=' . $storeId : ''));
+        return;
+    }
+    if ($storeId === 0 && !$auth->isOperator()) {
+        $storeId = $auth->grantedStores()[0];
+    }
+    if ($storeId !== 0 && !$auth->canAccessStore($storeId)) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "Không có quyền với cửa hàng này. Cài lại app từ cửa hàng đó (/install?shop=...) hoặc đăng nhập quản trị.\n";
+        return;
+    }
+    $store      = $storeId ? $db->findStore($storeId) : null;
+    $orders     = $store   ? $db->listOrders((int)$store['id'], 50) : [];
+    $stores     = $auth->isOperator() && !$store ? $db->listStores() : [];
+    $isOperator = $auth->isOperator();
+    $csrf       = $auth->csrfToken();
+    header('Cache-Control: no-store');
     include __DIR__ . '/templates/admin.php';
 });
 
-$router->post('/admin/save', function () use ($db): void {
+$router->post('/admin/save', function () use ($db, $auth): void {
     $storeId = (int)($_POST['store_id'] ?? 0);
     if ($storeId === 0) {
         http_response_code(400);
         echo 'Missing store_id';
+        return;
+    }
+    if (!$auth->canAccessStore($storeId) || !$auth->checkCsrf((string)($_POST['csrf'] ?? ''))) {
+        http_response_code(403);
+        echo 'Forbidden';
         return;
     }
     $db->updateStoreSettings($storeId, [

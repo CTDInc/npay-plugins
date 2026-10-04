@@ -2,6 +2,9 @@
 /** @var array $config */
 /** @var ?array $store */
 /** @var array $orders */
+/** @var array $stores */
+/** @var bool $isOperator */
+/** @var string $csrf */
 ?><!doctype html>
 <html lang="vi">
 <head>
@@ -15,7 +18,30 @@
     <?php if ($store): ?>
         <p>Cửa hàng: <b><?= htmlspecialchars((string)$store['sapo_store']) ?></b></p>
     <?php endif; ?>
+    <form method="post" action="/admin/logout" class="inline">
+        <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>">
+        <?php if ($isOperator && $store): ?><a href="/admin">Tất cả cửa hàng</a> · <?php endif; ?>
+        <button type="submit">Đăng xuất</button>
+    </form>
 </header>
+
+<?php if (!$store && $stores): ?>
+    <section class="npay-card">
+        <h2>Cửa hàng đã cài</h2>
+        <table class="npay-table">
+            <thead><tr><th>#</th><th>Cửa hàng</th><th>Cài lúc</th></tr></thead>
+            <tbody>
+            <?php foreach ($stores as $s): ?>
+                <tr>
+                    <td><?= (int)$s['id'] ?></td>
+                    <td><a href="/admin?store=<?= (int)$s['id'] ?>"><?= htmlspecialchars((string)$s['sapo_store']) ?></a></td>
+                    <td><?= htmlspecialchars((string)$s['created_at']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </section>
+<?php endif; ?>
 
 <?php if (!$store): ?>
     <section class="npay-card">
@@ -33,6 +59,7 @@
         <h2>Cấu hình thanh toán</h2>
         <form method="post" action="/admin/save">
             <input type="hidden" name="store_id" value="<?= (int)$store['id'] ?>">
+            <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>">
             <label>NPay API key (header <code>Authorization: Apikey</code>)<input name="api_key" value="<?= htmlspecialchars((string)($store['api_key'] ?? '')) ?>"></label>
             <label>NPay webhook secret (ký <code>X-Npay-Signature</code>, sao chép từ dashboard npay.vn)<input name="npay_webhook_secret" value="<?= htmlspecialchars((string)($store['npay_webhook_secret'] ?? '')) ?>"></label>
             <label>Ngân hàng (VCB, MB, vietcombank… hoặc mã BIN)<input name="bank_code" value="<?= htmlspecialchars((string)($store['bank_code'] ?? '')) ?>"></label>

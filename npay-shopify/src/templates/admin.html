@@ -17,6 +17,7 @@
       <h2>Cấu hình tài khoản nhận tiền</h2>
       <form method="POST" action="/admin/settings">
         <input type="hidden" name="shop" value="{{shop_domain}}" />
+        <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
         <label>
           Số tài khoản
           <input name="account_number" value="{{account_number}}" required />

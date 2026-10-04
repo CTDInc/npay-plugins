@@ -26,7 +26,7 @@ Yêu cầu: **Node.js 20+**.
 | Biến | Ý nghĩa |
 | --- | --- |
 | `SHOPIFY_API_KEY` | Client ID của Custom App |
-| `SHOPIFY_API_SECRET` | Client Secret |
+| `SHOPIFY_API_SECRET` | Client Secret — đồng thời là khoá ký phiên trang quản trị; thiếu thì `/admin` trả 503 |
 | `SCOPES` | `read_orders,write_orders` |
 | `HOST` | URL công khai (HTTPS) của app, vd `https://npay-shop.example.com` |
 | `SHOPIFY_API_VERSION` | Mặc định `2024-10` |
@@ -38,10 +38,12 @@ Yêu cầu: **Node.js 20+**.
 ## 2. Tạo Custom App trên Shopify Partners
 
 1. Vào <https://partners.shopify.com> → **Apps** → **Create app** → **Create app manually**.
-2. **App URL**: `https://<HOST>/`
+2. **App URL**: `https://<HOST>/admin` (`https://<HOST>/` cũng được, app tự chuyển sang `/admin`).
 3. **Allowed redirection URL(s)**: `https://<HOST>/auth/callback`
 4. Lấy **Client ID** + **Client secret** điền vào `.env`.
 5. Cấu hình scopes: `read_orders, write_orders`.
+6. **Embed app in Shopify admin**: tắt. Trang quản trị chạy ở cửa sổ riêng, phiên lưu bằng cookie
+   `SameSite=Lax` — nhúng trong iframe của Shopify thì cookie không được gửi.
 
 ### Cài lên cửa hàng dev
 
@@ -60,7 +62,14 @@ Sau khi cấp quyền:
 
 ## 3. Cấu hình NPay
 
-Mở trang admin: `https://<HOST>/admin?shop=<your-store>.myshopify.com`
+Mở trang admin **từ Shopify admin** (Apps → NPay). Shopify mở App URL kèm `shop`, `timestamp`,
+`hmac` ký bằng Client secret; app kiểm chữ ký (lệch tối đa 10 phút) rồi cấp cookie phiên
+`npay_admin_session` (HttpOnly, 8 giờ) **chỉ cho đúng shop đó**. Cài app qua `/auth?shop=…` xong cũng
+được cấp phiên luôn.
+
+Gọi thẳng `https://<HOST>/admin?shop=<your-store>.myshopify.com` khi chưa có phiên → **401**. Phiên
+của shop A không mở được trang shop B. Form lưu cấu hình có CSRF token gắn với phiên. Hết phiên thì mở
+lại app từ Shopify admin (hoặc chạy lại `/auth?shop=…`).
 
 Khai báo:
 - **Số tài khoản**, **BIN ngân hàng** (vd `970422` = MB, hoặc mã `mbbank`, `VCB`), **Chủ tài khoản**.
@@ -107,6 +116,7 @@ npay-shopify/
 ├── Dockerfile
 ├── src/
 │   ├── lib/
+│   │   ├── admin-session.js
 │   │   ├── db.js
 │   │   ├── npay-client.js
 │   │   └── shopify-client.js
@@ -120,6 +130,7 @@ npay-shopify/
 │       └── admin.html
 ├── public/assets/{css,js}
 └── tests/
+    ├── test-admin-auth.js
     ├── test-qr.js
     └── test-hmac.js
 ```
@@ -137,6 +148,7 @@ node --test tests/
 Bao gồm:
 - `test-qr.js`: builder URL QR + parse `NPAY-xxx` từ nội dung CK.
 - `test-hmac.js`: xác thực HMAC Shopify (raw body + OAuth query) và header `Apikey` của NPay.
+- `test-admin-auth.js`: trang quản trị đòi phiên đúng shop, kiểm launch HMAC, CSRF, `shops.json` đã bỏ.
 
 ---
 
@@ -150,6 +162,15 @@ docker run --rm -p 3000:3000 --env-file .env npay-shopify
 ---
 
 ## Thay đổi
+
+### 1.2.0 — bảo mật
+
+- **`/admin`, `/admin/settings` trước đây không cần đăng nhập** — ai biết tên shop là đọc được API
+  key, webhook secret và đổi số tài khoản nhận tiền. Giờ đòi phiên của đúng shop, cấp khi mở app từ
+  Shopify admin (kiểm `hmac`) hoặc sau OAuth; form lưu có CSRF token.
+- Bỏ hẳn `/admin/shops.json` (liệt kê tài khoản ngân hàng của mọi shop).
+- App URL nên đặt `https://<HOST>/admin`; `/` có `shop` + `hmac` tự chuyển sang `/admin`.
+- Không thêm biến môi trường mới: phiên ký bằng khoá dẫn xuất từ `SHOPIFY_API_SECRET`.
 
 ### 1.1.0
 

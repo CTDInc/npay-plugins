@@ -55,6 +55,13 @@ class Database
         return $row ?: null;
     }
 
+    public function listStores(int $limit = 200): array
+    {
+        $stmt = $this->pdo->prepare('SELECT id, sapo_store, created_at FROM stores ORDER BY id DESC LIMIT ' . max(1, $limit));
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
     public function findStoreByDomain(string $domain): ?array
     {
         $stmt = $this->pdo->prepare('SELECT * FROM stores WHERE sapo_store = :d');

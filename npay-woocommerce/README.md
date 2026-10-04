@@ -46,7 +46,7 @@ Vào **WooCommerce → Settings → Payments → NPay** (hoặc click "Settings"
 | Webhook HMAC Secret | Tùy chọn — nếu set, sẽ kiểm tra `X-Npay-Signature` |
 | Account Number | Số tài khoản ngân hàng nhận tiền |
 | Account Holder | Chủ tài khoản |
-| Bank Code | Mã ngân hàng (VCB, MB, TCB, ACB, VTB, ...) |
+| Bank Code | Mã BIN Napas 6 số (`970436`, `970422`, …) — chắc chắn nhất — hoặc mã/slug ngân hàng (`VCB`, `MB`, `vietcombank`, `mbbank`, …). Mã viết tắt phổ biến được tự đổi sang slug mà `qr.npay.vn` nhận |
 | Payment Code Prefix | Tiền tố mã thanh toán (mặc định `NPAY`) |
 | QR Template | Mẫu QR hiển thị |
 | Payment Expiry | Thời gian đếm ngược (phút) |

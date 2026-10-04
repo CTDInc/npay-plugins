@@ -34,6 +34,7 @@ npay-sapo/
 ├── migrations/
 │   └── 001_init.sql                # Schema MySQL
 ├── src/
+│   ├── AdminAuth.php               # Phiên quản trị (mật khẩu / OAuth)
 │   ├── Router.php
 │   ├── Database.php
 │   ├── SapoClient.php              # OAuth + REST API
@@ -44,6 +45,7 @@ npay-sapo/
 │       └── NPayWebhook.php         # transaction → mark paid
 ├── templates/
 │   ├── payment.php                 # Trang QR cho khách
+│   ├── login.php                   # Đăng nhập quản trị
 │   └── admin.php                   # Quản trị cửa hàng
 └── public/assets/
     ├── css/style.css
@@ -73,6 +75,7 @@ Nâng cấp từ 1.0.x: chạy thêm `migrations/002_npay_webhook_secret.sql`.
 | Khoá | Ý nghĩa |
 | --- | --- |
 | `app_url` | URL công khai của app, không có `/` cuối |
+| `admin_password` | Mật khẩu `/admin/login` cho người vận hành (xem mọi cửa hàng), env `ADMIN_PASSWORD`. Để trống = tắt đăng nhập bằng mật khẩu |
 | `sapo_client_id` / `sapo_client_secret` | Lấy ở Sapo Developer Portal |
 | `sapo_scopes` | Mặc định `read_orders,write_orders,read_products` |
 | `npay_webhook_secret` | Webhook secret NPay dùng chung cho cửa hàng chưa khai riêng (để trống = tắt) |
@@ -89,6 +92,19 @@ Nâng cấp từ 1.0.x: chạy thêm `migrations/002_npay_webhook_secret.sql`.
 4. Copy `Client ID`, `Client Secret`, `Webhook secret` → điền vào `config.php`
    và (nếu là per-store) ở trang `/admin?store=<id>`.
 
+## Đăng nhập trang quản trị
+
+`/admin` và `/admin/save` đòi phiên đăng nhập (cookie `npay_sapo_admin`, HttpOnly, SameSite=Lax,
+hết hạn sau 8 giờ không dùng). Có hai đường vào:
+
+- **Chủ cửa hàng**: cài (hoặc cài lại) app qua `/install?shop=yourstore.mysapo.net`. Sapo xác thực
+  chủ shop, app nhận callback OAuth rồi cấp phiên **chỉ cho đúng cửa hàng đó** — mở `?store=` của
+  cửa hàng khác trả 403. Hết phiên thì chạy lại `/install?shop=…`.
+- **Người vận hành**: `/admin/login` bằng `admin_password` (so sánh hằng thời gian), xem được mọi
+  cửa hàng. `admin_password` trống thì đăng nhập bằng mật khẩu bị tắt hẳn, không có mật khẩu mặc định.
+
+Form lưu cấu hình, đăng nhập, đăng xuất đều có CSRF token.
+
 ## Cài app vào cửa hàng
 
 Mở trình duyệt:
@@ -104,7 +120,8 @@ app nhận `code`, đổi lấy `access_token` và lưu vào bảng `stores`.
 
 Tại [NPay Dashboard](https://npay.vn), tạo webhook với **URL** =
 `https://<APP_URL>/webhook/npay`, kiểu xác thực **API Key**, bật **Ký request**.
-Sao chép API key và **webhook secret** của webhook đó vào trang quản trị app:
+Sao chép API key và **webhook secret** của webhook đó vào trang quản trị app (đăng nhập như mục
+*Đăng nhập trang quản trị*):
 
 ```
 https://<APP_URL>/admin?store=<store_id>
@@ -132,8 +149,10 @@ Khai báo:
 | POST | `/webhook/npay`     | Nhận giao dịch từ NPay |
 | GET  | `/payment/{order}`  | Trang QR cho khách |
 | GET  | `/status/{order}`   | JSON poll trạng thái |
-| GET  | `/admin`            | Trang quản trị |
-| POST | `/admin/save`       | Lưu cấu hình store |
+| GET  | `/admin`            | Trang quản trị (cần đăng nhập) |
+| POST | `/admin/save`       | Lưu cấu hình store (cần đăng nhập + CSRF) |
+| GET/POST | `/admin/login`  | Đăng nhập bằng `admin_password` |
+| POST | `/admin/logout`     | Đăng xuất |
 
 ## Docker
 
@@ -145,12 +164,21 @@ docker run -d --name npay-sapo \
   -e SAPO_CLIENT_ID=... \
   -e SAPO_CLIENT_SECRET=... \
   -e NPAY_WEBHOOK_SECRET=... \
+  -e ADMIN_PASSWORD="$(openssl rand -base64 24)" \
   -e DB_DSN='mysql:host=db;dbname=npay_sapo;charset=utf8mb4' \
   -e DB_USER=npay -e DB_PASS=secret \
   npay/sapo
 ```
 
 ## Thay đổi
+
+### 1.2.0 — bảo mật
+
+- **`/admin` và `/admin/save` trước đây không cần đăng nhập** — ai đoán được `?store=<id>` là đọc
+  được API key, webhook secret của cửa hàng và đổi được số tài khoản nhận tiền. Giờ đòi phiên:
+  chủ shop vào qua OAuth (chỉ thấy shop mình), người vận hành vào bằng `admin_password` mới.
+- Thêm cấu hình `admin_password` (env `ADMIN_PASSWORD`); trống = tắt đăng nhập bằng mật khẩu.
+- CSRF token cho mọi form quản trị; `/install` từ chối `shop` không phải tên miền hợp lệ.
 
 ### 1.1.0
 

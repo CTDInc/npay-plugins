@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NPay\Haravan;
 
 /**
- * Builds VietQR / NPay payment URLs and verifies NPay webhook signatures.
+ * Builds NPay QR (qr.npay.vn) URLs and verifies NPay webhook signatures.
  */
 class NPayClient
 {
@@ -16,27 +16,51 @@ class NPayClient
         $this->cfg = $config['npay'] ?? [];
     }
 
+    private const BANK_ALIASES = [
+        'vcb' => 'vietcombank', 'tcb' => 'techcombank', 'ctg' => 'vietinbank', 'icb' => 'vietinbank',
+        'vtb' => 'vietinbank', 'mb' => 'mbbank', 'vpb' => 'vpbank', 'tpb' => 'tpbank', 'stb' => 'sacombank',
+        'hdb' => 'hdbank', 'eib' => 'eximbank', 'vba' => 'agribank', 'agr' => 'agribank',
+        'lpb' => 'lienvietpostbank', 'lpbank' => 'lienvietpostbank', 'nab' => 'namabank',
+        'abb' => 'abbank', 'bab' => 'bacabank', 'pvcb' => 'pvcombank', 'seab' => 'seabank',
+        'klb' => 'kienlongbank', 'vab' => 'vietabank', 'sgicb' => 'saigonbank', 'bvb' => 'banviet',
+    ];
+
     /**
-     * Build a QR image URL using VietQR.io template.
+     * Build the NPay QR image URL: `/qrcard` (VietQR card) or `/qrpay` (bare QR,
+     * `qr_template` = `qr_only`).
      */
     public function buildQrUrl(string $code, float $amount): string
     {
-        $bank  = $this->cfg['bank_id']        ?? '';
-        $acc   = $this->cfg['account_number'] ?? '';
-        $tpl   = $this->cfg['qr_template']    ?? 'compact2';
-        $name  = $this->cfg['account_name']   ?? '';
+        $base = rtrim((string)($this->cfg['qr_endpoint'] ?? 'https://qr.npay.vn'), '/');
+        $base = (string)preg_replace('#/(img|qrpay|qrcard)$#', '', $base);
+        $tpl  = strtolower((string)($this->cfg['qr_template'] ?? ''));
+        $bare = in_array($tpl, ['qr_only', 'qronly'], true);
 
-        $params = http_build_query([
-            'amount'      => (int)round($amount),
-            'addInfo'     => $code,
-            'accountName' => $name,
-        ]);
-        return sprintf('https://img.vietqr.io/image/%s-%s-%s.png?%s',
-            rawurlencode($bank),
-            rawurlencode($acc),
-            rawurlencode($tpl),
-            $params
-        );
+        $params = self::bankParam((string)($this->cfg['bank_id'] ?? '')) + [
+            'tai_khoan' => (string)($this->cfg['account_number'] ?? ''),
+            'so_tien'   => (string)(int)round($amount),
+            'noi_dung'  => $code,
+        ];
+        $name = (string)($this->cfg['account_name'] ?? '');
+        if (!$bare && $name !== '') {
+            $params['chu_tai_khoan'] = $name;
+        }
+        return $base . ($bare ? '/qrpay' : '/qrcard') . '?' . http_build_query($params);
+    }
+
+    /**
+     * qr.npay.vn takes a Napas BIN (`ma_bin`) or a vietnam-qr-pay slug (`ngan_hang`);
+     * short codes like VCB / MB are mapped to their slug.
+     *
+     * @return array<string, string>
+     */
+    public static function bankParam(string $bank): array
+    {
+        $bank = strtolower((string)preg_replace('/[\s_-]+/', '', trim($bank)));
+        if (preg_match('/^\d{6}$/', $bank)) {
+            return ['ma_bin' => $bank];
+        }
+        return ['ngan_hang' => self::BANK_ALIASES[$bank] ?? $bank];
     }
 
     public function bankInfo(): array

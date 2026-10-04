@@ -27,6 +27,10 @@ app.use(cookieParser());
 app.use('/assets', express.static(path.join(__dirname, 'public/assets')));
 
 app.get('/', (req, res) => {
+  if (req.query.shop && req.query.hmac) {
+    const qs = new URLSearchParams(req.query).toString();
+    return res.redirect('/admin?' + qs);
+  }
   res.send('NPay Shopify plugin is running. Install via /auth?shop=<your-store>.myshopify.com');
 });
 

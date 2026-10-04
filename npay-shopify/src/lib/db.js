@@ -81,10 +81,6 @@ function getShopByApiToken(token) {
   return getDb().prepare('SELECT * FROM shops WHERE api_token = ?').get(token);
 }
 
-function listShops() {
-  return getDb().prepare('SELECT shop_domain, account_number, bank_bin, account_holder, qr_template, created_at FROM shops').all();
-}
-
 function createOrder({ shopDomain, shopifyOrderId, refCode, amount }) {
   const db = getDb();
   const info = db.prepare(`
@@ -122,7 +118,6 @@ module.exports = {
   updateShopSettings,
   getShop,
   getShopByApiToken,
-  listShops,
   createOrder,
   getOrderByRef,
   getOrderById,

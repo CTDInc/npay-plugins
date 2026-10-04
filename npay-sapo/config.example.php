@@ -14,6 +14,11 @@ return [
     // Scopes requested when installing on a Sapo store.
     'sapo_scopes' => 'read_orders,write_orders,read_products',
 
+    // Admin password for /admin/login (operator view: every store). Compared in constant
+    // time; empty = password login disabled. Store owners get in via the Sapo OAuth install
+    // (/install?shop=...), which only unlocks their own store.
+    'admin_password' => getenv('ADMIN_PASSWORD') ?: '',
+
     // NPay platform credentials. Per-store API key + webhook secret live in DB;
     // this secret is only a fallback for stores without their own. Empty = off.
     'npay_webhook_secret' => getenv('NPAY_WEBHOOK_SECRET') ?: '',

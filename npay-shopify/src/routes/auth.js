@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const db = require('../lib/db');
 const shopifyClient = require('../lib/shopify-client');
 const { verifyOAuthHmac } = require('../lib/shopify-hmac');
+const adminSession = require('../lib/admin-session');
 
 const router = express.Router();
 
@@ -92,6 +93,7 @@ router.get('/callback', async (req, res) => {
     }
 
     res.clearCookie('npay_oauth_state');
+    adminSession.setSession(res, shop, secret);
     res.redirect(`/admin?shop=${encodeURIComponent(shop)}`);
   } catch (err) {
     console.error('[npay-shopify] /auth/callback error:', err);

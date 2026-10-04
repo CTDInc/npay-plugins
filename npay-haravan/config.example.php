@@ -23,7 +23,7 @@ return [
 
     // NPay merchant configuration
     'npay' => [
-        'bank_id'         => 'BIDV',          // BIN/short code of receiving bank
+        'bank_id'         => 'BIDV',          // Napas BIN (970418) or bank code/slug (BIDV, VCB, mbbank)
         'account_number'  => '0123456789',
         'account_name'    => 'CONG TY NPAY',
         // Webhook auth — paste from the webhook on https://npay.vn. Either one is enough:
@@ -31,7 +31,8 @@ return [
         //   webhook_secret: signs the raw body, `X-Npay-Signature` = hex HMAC-SHA256
         'api_key'         => '',
         'webhook_secret'  => '',
-        'qr_template'     => 'compact2',
+        'qr_template'     => 'compact',       // 'qr_only' = bare QR (/qrpay), anything else = VietQR card (/qrcard)
+        'qr_endpoint'     => 'https://qr.npay.vn',
     ],
 
     // Order code prefix (becomes NPAY-{order_number})

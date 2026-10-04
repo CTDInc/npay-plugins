@@ -131,7 +131,7 @@ class WC_Gateway_NPay extends WC_Payment_Gateway {
 			'bank_code'      => array(
 				'title'       => __( 'Bank Code', 'npay-woocommerce' ),
 				'type'        => 'text',
-				'description' => __( 'Bank short code (e.g. VCB, MB, TCB, ACB, VTB).', 'npay-woocommerce' ),
+				'description' => __( 'Napas BIN (e.g. 970436, 970422) or bank code/slug (e.g. VCB, MB, vietcombank, mbbank).', 'npay-woocommerce' ),
 				'default'     => '',
 				'desc_tip'    => true,
 			),

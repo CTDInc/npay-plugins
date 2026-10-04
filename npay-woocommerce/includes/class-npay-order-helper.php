@@ -134,11 +134,57 @@ class NPay_Order_Helper {
 	}
 
 	/**
+	 * Common short codes → vietnam-qr-pay slug accepted by qr.npay.vn (`ngan_hang`).
+	 * qr.npay.vn rejects short codes such as "vcb" / "mb" with HTTP 400.
+	 */
+	const BANK_ALIASES = array(
+		'vcb'    => 'vietcombank',
+		'tcb'    => 'techcombank',
+		'ctg'    => 'vietinbank',
+		'icb'    => 'vietinbank',
+		'vtb'    => 'vietinbank',
+		'mb'     => 'mbbank',
+		'vpb'    => 'vpbank',
+		'tpb'    => 'tpbank',
+		'stb'    => 'sacombank',
+		'hdb'    => 'hdbank',
+		'eib'    => 'eximbank',
+		'vba'    => 'agribank',
+		'agr'    => 'agribank',
+		'lpb'    => 'lienvietpostbank',
+		'lpbank' => 'lienvietpostbank',
+		'nab'    => 'namabank',
+		'abb'    => 'abbank',
+		'bab'    => 'bacabank',
+		'pvcb'   => 'pvcombank',
+		'seab'   => 'seabank',
+		'klb'    => 'kienlongbank',
+		'vab'    => 'vietabank',
+		'sgicb'  => 'saigonbank',
+		'bvb'    => 'banviet',
+	);
+
+	/**
+	 * Bank setting → qr.npay.vn query param: 6-digit Napas BIN → `ma_bin`,
+	 * otherwise `ngan_hang` with short codes mapped to slugs.
+	 *
+	 * @param string $bank Bank BIN, short code (VCB, MB) or slug (vietcombank).
+	 * @return array<string, string>
+	 */
+	public static function bank_param( $bank ) {
+		$bank = strtolower( (string) preg_replace( '/[\s_-]+/', '', trim( (string) $bank ) ) );
+		if ( preg_match( '/^\d{6}$/', $bank ) ) {
+			return array( 'ma_bin' => $bank );
+		}
+		return array( 'ngan_hang' => isset( self::BANK_ALIASES[ $bank ] ) ? self::BANK_ALIASES[ $bank ] : $bank );
+	}
+
+	/**
 	 * Build QR image URL.
 	 *
 	 * @param array $args {
 	 *     @type string $account_number Bank account number.
-	 *     @type string $bank           Bank short code (e.g. VCB).
+	 *     @type string $bank           Bank BIN (970436), short code (VCB) or slug (vietcombank).
 	 *     @type float  $amount         Amount.
 	 *     @type string $description    Transfer description (payment code).
 	 *     @type string $template       Template (compact, qronly, etc).
@@ -156,11 +202,9 @@ class NPay_Order_Helper {
 		);
 		$args     = wp_parse_args( $args, $defaults );
 
-		// NPay gen-qr-service: /qrcard = VietQR card, /qrpay = bare QR. Bank key
-		// is the vietnam-qr-pay lowercase slug (e.g. "shb", "vietcombank").
+		// NPay gen-qr-service: /qrcard = VietQR card, /qrpay = bare QR.
 		$route  = ( 'qronly' === $args['template'] ) ? '/qrpay' : '/qrcard';
-		$params = array(
-			'ngan_hang' => strtolower( $args['bank'] ),
+		$params = self::bank_param( $args['bank'] ) + array(
 			'tai_khoan' => $args['account_number'],
 			'so_tien'   => number_format( (float) $args['amount'], 0, '.', '' ),
 			'noi_dung'  => $args['description'],
