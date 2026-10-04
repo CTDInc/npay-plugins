@@ -127,3 +127,11 @@ body {
     background: #f3f4f6;
     font-weight: 600;
 }
+
+/* Admin login / logout */
+.npay-logout { display: flex; gap: 12px; align-items: center; justify-content: flex-end; margin-bottom: 16px; }
+.npay-login { max-width: 480px; }
+.npay-login label { display: block; margin: 12px 0; }
+.npay-login input { display: block; width: 100%; padding: 10px 12px; margin-top: 4px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+.npay-admin button { background: var(--npay-primary); color: #fff; border: 0; border-radius: 8px; padding: 8px 16px; cursor: pointer; }
+.npay-flash-err { background: #fdecec; color: #c62828; padding: 10px; border-radius: 8px; }

@@ -1,6 +1,9 @@
 <?php
 /** @var array $orders */
 /** @var array $config */
+/** @var bool $isOperator */
+/** @var ?array $shops */
+/** @var string $csrf */
 ?><!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -11,6 +14,13 @@
 <body>
 <div class="npay-admin">
     <h1>NPay × Haravan</h1>
+    <form method="post" action="/admin/logout" class="npay-logout">
+        <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>">
+        <?php if (!$isOperator): ?>
+            <span>Shop: <b><?= htmlspecialchars(implode(', ', $shops ?? [])) ?></b></span>
+        <?php endif; ?>
+        <button type="submit">Đăng xuất</button>
+    </form>
     <p>App URL: <code><?= htmlspecialchars((string)$config['app_url']) ?></code></p>
     <p>Cài đặt mới: <code><?= htmlspecialchars(rtrim((string)$config['app_url'], '/')) ?>/install?shop=YOUR_SHOP.myharavan.com</code></p>
     <p>Webhook Haravan: <code><?= htmlspecialchars(rtrim((string)$config['app_url'], '/')) ?>/webhook/haravan</code></p>

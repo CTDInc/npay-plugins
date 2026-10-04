@@ -25,7 +25,7 @@ git clone <repo> npay-haravan
 cd npay-haravan
 composer install
 cp config.example.php config.php
-# Sửa config.php: haravan_client_id, haravan_client_secret, app_url, db_dsn, npay.*
+# Sửa config.php: haravan_client_id, haravan_client_secret, app_url, admin_password, db_dsn, npay.*
 ```
 
 Tạo schema (MySQL):
@@ -40,8 +40,22 @@ Với SQLite, schema sẽ được khởi tạo tự động khi chạy lần đ
 
 ```bash
 docker build -t npay-haravan .
-docker run -d -p 8080:80 -v $PWD/config.php:/var/www/html/config.php npay-haravan
+docker run -d -p 8080:80 -v $PWD/config.php:/var/www/html/config.php \
+  -e ADMIN_PASSWORD="$(openssl rand -base64 24)" npay-haravan
 ```
+
+## Đăng nhập trang quản trị
+
+`/admin` (và `/`) đòi phiên đăng nhập (cookie `npay_haravan_admin`, HttpOnly, SameSite=Lax, hết hạn
+sau 8 giờ không dùng). Hai đường vào:
+
+- **Chủ shop**: cài (hoặc cài lại) app qua `/install?shop=YOUR_SHOP.myharavan.com`. Haravan xác thực
+  chủ shop, app cấp phiên **chỉ cho shop đó** — trang quản trị chỉ hiện đơn của shop đó. Hết phiên thì
+  chạy lại `/install?shop=…`.
+- **Người vận hành**: `/admin/login` bằng `admin_password` (env `ADMIN_PASSWORD`, so sánh hằng thời
+  gian), xem đơn của mọi shop. `admin_password` trống thì đăng nhập bằng mật khẩu bị tắt hẳn.
+
+Đăng nhập / đăng xuất có CSRF token.
 
 ## Đăng ký Haravan app
 
@@ -98,7 +112,9 @@ App chấp nhận xác thực qua **một trong hai** cơ chế (không khai gì
 | `/webhook/npay` | POST | Nhận webhook NPay (giao dịch về) |
 | `/payment/{order_id}` | GET | Trang QR cho khách |
 | `/status/{order_id}` | GET | JSON trạng thái (poll) |
-| `/admin` | GET | Dashboard đơn giản |
+| `/admin` | GET | Dashboard đơn hàng (cần đăng nhập) |
+| `/admin/login` | GET/POST | Đăng nhập bằng `admin_password` |
+| `/admin/logout` | POST | Đăng xuất |
 
 ## Schema DB
 
@@ -113,6 +129,7 @@ Xem `migrations/001_init.sql`.
 - Verify NPay webhook (apikey hoặc HMAC).
 - `.htaccess` chặn truy cập trực tiếp `config.php`, `composer.*`, `migrations/*`.
 - Cookie OAuth `state` HTTPOnly + Secure.
+- Trang quản trị đòi phiên (OAuth theo shop hoặc `admin_password`), CSRF cho form.
 
 ## Phát triển
 
@@ -123,6 +140,14 @@ php -S 0.0.0.0:8080 index.php
 (Bạn cần Apache/Nginx với rewrite để route đẹp; built-in server chỉ phục vụ debug.)
 
 ## Thay đổi
+
+### 1.2.0 — bảo mật
+
+- **`/admin` (và `/`) trước đây không cần đăng nhập** — ai cũng xem được danh sách đơn của mọi shop
+  (mã đơn, số tiền, mã giao dịch NPay). Giờ đòi phiên: chủ shop vào qua OAuth (chỉ thấy đơn shop
+  mình), người vận hành vào bằng `admin_password` mới.
+- Thêm cấu hình `admin_password` (env `ADMIN_PASSWORD`); trống = tắt đăng nhập bằng mật khẩu.
+- CSRF cho đăng nhập / đăng xuất; `/oauth/callback` từ chối `shop` không phải tên miền hợp lệ.
 
 ### 1.1.1
 

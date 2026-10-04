@@ -10,6 +10,11 @@ return [
     'haravan_client_secret' => 'YOUR_HARAVAN_CLIENT_SECRET',
     'haravan_scopes'        => 'read_orders,write_orders,read_products',
 
+    // Admin password for /admin/login (operator view: every shop). Compared in constant
+    // time; empty = password login disabled. Shop owners get in via the Haravan OAuth
+    // install (/install?shop=...), which only shows their own shop's orders.
+    'admin_password' => getenv('ADMIN_PASSWORD') ?: '',
+
     // Public URL where this app is served (no trailing slash)
     'app_url' => 'https://npay-haravan.example.com',
 

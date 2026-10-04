@@ -10,13 +10,17 @@ use NPay\Haravan\Webhook\NPayWebhook;
 
 class Router
 {
+    private const SHOP_PATTERN = '/^[a-zA-Z0-9][a-zA-Z0-9\-\.]*$/';
+
     private array $config;
     private Database $db;
+    private AdminAuth $auth;
 
     public function __construct(array $config, Database $db)
     {
         $this->config = $config;
         $this->db    = $db;
+        $this->auth  = new AdminAuth($config);
     }
 
     public function dispatch(): void
@@ -29,8 +33,18 @@ class Router
         }
 
         try {
-            if ($uri === '/' || $uri === '/admin') {
+            if (($uri === '/' || $uri === '/admin') && $method === 'GET') {
                 $this->renderAdmin();
+                return;
+            }
+
+            if ($uri === '/admin/login') {
+                $method === 'POST' ? $this->login() : $this->renderLogin();
+                return;
+            }
+
+            if ($uri === '/admin/logout' && $method === 'POST') {
+                $this->logout();
                 return;
             }
 
@@ -76,7 +90,7 @@ class Router
     private function install(): void
     {
         $shop = trim((string)($_GET['shop'] ?? ''));
-        if ($shop === '' || !preg_match('/^[a-zA-Z0-9\-\.]+$/', $shop)) {
+        if ($shop === '' || !preg_match(self::SHOP_PATTERN, $shop)) {
             http_response_code(400);
             echo 'Missing or invalid ?shop=xxx.myharavan.com';
             return;
@@ -116,7 +130,8 @@ class Router
         $shop  = $_GET['shop']  ?? ($_COOKIE['npay_haravan_shop'] ?? '');
         $cookieState = $_COOKIE['npay_haravan_state'] ?? '';
 
-        if ($code === '' || $shop === '' || $state === '' || !hash_equals((string)$cookieState, (string)$state)) {
+        if ($code === '' || !is_string($shop) || $shop === '' || $state === ''
+            || !hash_equals((string)$cookieState, (string)$state) || !preg_match(self::SHOP_PATTERN, $shop)) {
             http_response_code(400);
             echo 'Invalid OAuth state.';
             return;
@@ -131,19 +146,58 @@ class Router
             'scope'          => $token['scope'] ?? ($this->config['haravan_scopes'] ?? ''),
             'installed_at'   => date('Y-m-d H:i:s'),
         ]);
+        setcookie('npay_haravan_state', '', ['expires' => time() - 3600, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax']);
+        $this->auth->grantShop((string)$shop);
 
         header('Content-Type: text/html; charset=utf-8');
         echo '<h1>NPay × Haravan</h1><p>Cài đặt thành công cho shop <b>' . htmlspecialchars((string)$shop) . '</b>.</p>';
         echo '<p>Webhook URL Haravan cần đăng ký (orders/create): <code>'
             . htmlspecialchars(rtrim($this->config['app_url'], '/') . '/webhook/haravan') . '</code></p>';
         echo '<p>NPay webhook URL: <code>' . htmlspecialchars(rtrim($this->config['app_url'], '/') . '/webhook/npay') . '</code></p>';
+        echo '<p><a href="/admin">Mở trang quản trị</a></p>';
     }
 
     private function renderAdmin(): void
     {
-        $orders = $this->db->listRecentOrders(50);
-        $config = $this->config;
+        if (!$this->auth->isAuthenticated()) {
+            header('Location: /admin/login', true, 302);
+            return;
+        }
+        $isOperator = $this->auth->isOperator();
+        $shops      = $isOperator ? null : $this->auth->grantedShops();
+        $orders     = $this->db->listRecentOrders(50, $shops);
+        $config     = $this->config;
+        $csrf       = $this->auth->csrfToken();
+        header('Cache-Control: no-store');
         include __DIR__ . '/../templates/admin.php';
+    }
+
+    private function renderLogin(): void
+    {
+        $passwordConfigured = $this->auth->passwordConfigured();
+        $error = !empty($_GET['error']);
+        $csrf  = $this->auth->csrfToken();
+        header('Cache-Control: no-store');
+        include __DIR__ . '/../templates/login.php';
+    }
+
+    private function login(): void
+    {
+        if (!$this->auth->checkCsrf((string)($_POST['csrf'] ?? ''))
+            || !$this->auth->login((string)($_POST['password'] ?? ''))) {
+            usleep(500000);
+            header('Location: /admin/login?error=1', true, 302);
+            return;
+        }
+        header('Location: /admin', true, 302);
+    }
+
+    private function logout(): void
+    {
+        if ($this->auth->checkCsrf((string)($_POST['csrf'] ?? ''))) {
+            $this->auth->logout();
+        }
+        header('Location: /admin/login', true, 302);
     }
 
     private function notFound(): void

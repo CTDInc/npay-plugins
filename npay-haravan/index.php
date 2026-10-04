@@ -9,7 +9,9 @@
  *   POST /webhook/npay             - NPay transaction webhook
  *   GET  /payment/{order_id}       - Customer-facing payment page (QR)
  *   GET  /status/{order_id}        - JSON status polling endpoint
- *   GET  /admin                    - Simple admin dashboard
+ *   GET  /admin                    - Admin dashboard (session: OAuth per shop or admin_password)
+ *   GET|POST /admin/login          - Operator login (admin_password)
+ *   POST /admin/logout             - Log out
  */
 
 declare(strict_types=1);

@@ -178,10 +178,22 @@ SQL
         ]);
     }
 
-    public function listRecentOrders(int $limit = 50): array
+    /**
+     * @param string[]|null $shops null = every shop
+     */
+    public function listRecentOrders(int $limit = 50, ?array $shops = null): array
     {
         $limit = max(1, min(500, $limit));
-        $stmt = $this->pdo->query('SELECT * FROM payments ORDER BY id DESC LIMIT ' . $limit);
+        if ($shops === null) {
+            $stmt = $this->pdo->query('SELECT * FROM payments ORDER BY id DESC LIMIT ' . $limit);
+            return $stmt->fetchAll();
+        }
+        if ($shops === []) {
+            return [];
+        }
+        $in   = implode(',', array_fill(0, count($shops), '?'));
+        $stmt = $this->pdo->prepare("SELECT * FROM payments WHERE shop IN ($in) ORDER BY id DESC LIMIT " . $limit);
+        $stmt->execute(array_values($shops));
         return $stmt->fetchAll();
     }
 }
